@@ -1,0 +1,455 @@
+# Regras de negócio e premissas do painel.
+# Cada regra tem um código (aparece nas telas), a frente de negócio, o que faz, os parâmetros ajustáveis
+# e a base (normativo, dado ou premissa). Mude os parâmetros aqui e rode completar_carga.bat (ou a carga
+# diária) para recalcular. Status: "ativa" = em uso; "validar" = premissa que a área de negócio deve confirmar.
+
+PERM-01:
+  nome: Tempo de permanência do saldo
+  frente: Permanência e rentabilidade
+  descricao: >-
+    Dias que o dinheiro fica na conta = saldo de hoje ÷ média diária das saídas dos últimos 12 meses
+    (pagamentos e transferências nos lançamentos bancários). Sem saídas registradas, usa o padrão e marca
+    como estimado.
+  parametros: {dias_padrao: 180, dias_maximo: 1095, janela_saidas_dias: 365, modulos_extrato_completo: [Especiais]}
+  base: Lançamentos bancários das Transferências Especiais e do Fundo a Fundo; convênios usam o padrão.
+  status: validar
+
+PERM-02:
+  nome: Classe do saldo
+  frente: Permanência e rentabilidade
+  descricao: Estável = fica 1 ano ou mais; Médio = de 3 meses a 1 ano; Passagem = sai em menos de 3 meses.
+  parametros: {estavel_dias: 365, passagem_dias: 90}
+  base: Premissa de gestão de passivo.
+  status: validar
+
+PERM-03:
+  nome: Valor econômico da custódia
+  frente: Permanência e rentabilidade
+  descricao: >-
+    Resultado estimado por ano = saldo × taxa de referência × fração aproveitada como resultado.
+    Ordem de grandeza para priorizar, não é cálculo oficial.
+  parametros: {taxa_referencia_aa: 10.5, fracao_resultado: 0.30}
+  base: Premissa (taxa próxima da Selic/CDI; fração a validar com a área financeira).
+  status: validar
+
+PERM-04:
+  nome: Concentração do saldo
+  frente: Permanência e rentabilidade
+  descricao: Alerta quando os 10 maiores entes têm mais que o limite do saldo CAIXA da modalidade.
+  parametros: {limite_top10: 0.40}
+  base: Gestão de risco de concentração.
+  status: ativa
+
+REC-01:
+  nome: Previsão do crédito das Transferências Especiais
+  frente: Dinheiro que ainda vai chegar
+  descricao: >-
+    Empenho ainda não pago cai na conta do plano em data do empenho + mediana de dias entre empenho e
+    ordem bancária dos pagamentos dos últimos 12 meses (por área; sem área, a mediana geral). Data já
+    passada = "a qualquer momento". Empenho sem pagamento há mais que o limite sai da previsão e vai para
+    "Empenho antigo sem pagamento (verificar)": nos dados de out/2026 há saldos de 2021–2023 que nunca viraram
+    ordem bancária e a mediana caiu de 45–300 dias (2021–2024) para 3–7 dias (2025–2026).
+  parametros: {dias_padrao: 45, janela_mediana_dias: 365, idade_maxima_dias: 540}
+  base: Empenhos e ordens bancárias da API de Transferências Especiais.
+  status: ativa
+
+REC-02:
+  nome: Repasse a liberar dos convênios
+  frente: Dinheiro que ainda vai chegar
+  descricao: >-
+    Convênio ativo com repasse maior que o desembolsado: a diferença ainda vai entrar na conta do convênio,
+    no banco já escolhido. O prazo limite é o fim da vigência.
+  parametros: {}
+  base: CSV de convênios (vl_repasse_conv, vl_desembolsado_conv, dia_fim_vigenc_conv).
+  status: ativa
+
+POT-01:
+  nome: Potencial de custódia (estimativa)
+  frente: Ação comercial
+  descricao: >-
+    Potencial = saldo hoje no concorrente + 0,5 × o que ainda vai ser creditado em conta do concorrente
+    (empenhado e não pago) + valor das janelas de escolha abertas. O fator 0,5 é premissa: metade do que ainda
+    vai chegar ao concorrente é disputável antes do crédito. Resultado estimado por ano = potencial × taxa de
+    referência × fração (PERM-03). É ordem de grandeza para priorizar, não valor contábil.
+  parametros: {fator_a_creditar: 0.5}
+  base: Contas, empenhos e janelas de escolha.
+  status: validar
+
+SAL-01:
+  nome: Saldo estimado onde o extrato parou (reconstituição)
+  frente: Custódia
+  descricao: >-
+    Onde o banco parou de publicar extrato e saldo (CAIXA nas Transferências Especiais, desde 30/05/2025), o
+    painel mostra lado a lado o saldo PARADO (último publicado, com a data) e o saldo ESTIMADO de hoje. Por conta
+    e por mês: saldo = saldo anterior × (1 + r) + créditos − saídas. Créditos = ordens bancárias, que continuam
+    publicadas para todos os bancos (conferem ao centavo com o "pago" das emendas no Portal da Transparência).
+    Saídas = débitos do extrato sem as aplicações (o saldo publicado inclui o aplicado). r = rendimento mensal,
+    calibrado nos bancos que publicam. Depois da parada, as saídas vêm da curva de execução do próprio banco
+    (fração de cada crédito que ainda está na conta k meses depois), medida antes da parada. A faixa vem de
+    testes retroativos refeitos a cada carga. Banco que nunca publicou extrato usa a curva média dos bancos que
+    publicam. Conta sem crédito publicado (executor, saldo sem vínculo) não é reconstituída. Fundo a Fundo e
+    Discricionárias não têm extrato com créditos datados por conta: não há reconstituição.
+  parametros: {rendimento_mensal_padrao: 0.008}
+  base: Ordens bancárias, documentos hábeis, empenhos, planos, lançamentos e saldos das Transferências Especiais.
+  status: validar
+
+REC-04:
+  nome: Dinheiro previsto, ainda não firme
+  frente: Dinheiro que ainda vai chegar
+  descricao: >-
+    Minutas de empenho das Transferências Especiais (empenho ainda não emitido) e propostas de convênio
+    aprovadas sem convênio assinado. É dinheiro que deve vir, mas ainda não é empenho nem convênio em
+    vigência: aparece à parte, na faixa "Previsto", e não soma ao valor firme (REC-01 e REC-02). Conciliação
+    de 01/11/2026: as minutas (R$ 3,9 bi) e as propostas (R$ 9,3 bi) estavam somadas ao firme.
+  parametros: {}
+  base: Situação do empenho (Minuta de Empenho) e data de assinatura do convênio.
+  status: ativa
+
+REC-03:
+  nome: Faixas de prazo
+  frente: Dinheiro que ainda vai chegar
+  descricao: Agrupa o dinheiro a receber em a qualquer momento, até 30, 31 a 90, 91 a 180 e mais de 180 dias.
+  parametros: {faixas_dias: [30, 90, 180]}
+  base: Convenção do painel.
+  status: ativa
+
+RIS-01:
+  nome: Ente migrando para o concorrente
+  frente: Radar de risco
+  descricao: Ente que teve CAIXA em ano anterior e, no último ano com dados, escolheu só o concorrente.
+  parametros: {}
+  base: Banco das contas dos instrumentos por ano.
+  status: ativa
+
+RIS-02:
+  nome: Vigência a vencer com saldo na CAIXA
+  frente: Radar de risco
+  descricao: >-
+    Convênio ativo com conta CAIXA, saldo acima do mínimo e fim da vigência próximo: o saldo vai ser usado
+    ou devolvido. Crítico até 90 dias, atenção até 180.
+  parametros: {saldo_minimo: 50000, dias_critico: 90, dias_atencao: 180}
+  base: CSV de convênios.
+  status: ativa
+
+RIS-03:
+  nome: Queda de saldo na CAIXA
+  frente: Radar de risco
+  descricao: Saldo CAIXA do ente caiu mais que o limite em 30 dias, partindo de um saldo relevante.
+  parametros: {queda_pct: 0.30, saldo_minimo: 1000000}
+  base: Série diária por ente (acumula a partir da primeira carga).
+  status: ativa
+
+RIS-04:
+  nome: Pagamentos saindo da CAIXA
+  frente: Radar de risco
+  descricao: Ente com conta CAIXA que paga a maior parte dos fornecedores em outros bancos.
+  parametros: {pct_fora_minimo: 0.70, valor_minimo: 500000}
+  base: Lançamentos bancários (banco do favorecido).
+  status: ativa
+
+RIS-05:
+  nome: Dependência de um parlamentar
+  frente: Radar de risco
+  descricao: Boa parte do valor CAIXA do ente vem de um só autor de emenda (risco de troca de mandato).
+  parametros: {pct_minimo: 0.70, valor_minimo: 1000000}
+  base: Emendas parlamentares por instrumento.
+  status: ativa
+
+RIS-06:
+  nome: Conformidade da Portaria Conjunta MF/MGI 15/2025
+  frente: Radar de risco
+  descricao: Saída da conta da transferência para outra conta do próprio ente após a data de corte. Só gestão.
+  parametros: {data_corte: "2025-07-28"}
+  base: Portaria Conjunta MF/MGI 15/2025 — validar com jurídico e conformidade.
+  status: validar
+
+ESC-01:
+  nome: Banco escolhido
+  frente: Matriz de escolhas
+  descricao: Em cada modalidade e ano, o banco escolhido pelo ente é o de maior valor nos instrumentos do ano.
+  parametros: {}
+  base: Banco das contas dos instrumentos.
+  status: ativa
+
+ESC-02:
+  nome: Fidelidade
+  frente: Matriz de escolhas
+  descricao: Mesmo banco em anos seguidos na mesma modalidade = fiel; trocou = migrou.
+  parametros: {}
+  base: Banco escolhido por ano (ESC-01).
+  status: ativa
+
+PER-01:
+  nome: Ente perdido pela CAIXA
+  frente: Entes perdidos
+  descricao: >-
+    Ente que escolheu a CAIXA em algum dos últimos anos e, no último ano em que teve instrumentos,
+    não colocou nada na CAIXA (Transferências Especiais e convênios).
+  parametros: {anos_olhados: 5}
+  base: Banco escolhido por ano (ESC-01).
+  status: ativa
+
+VC-01:
+  nome: Consolidar as modalidades na CAIXA
+  frente: Venda cruzada
+  descricao: Ente que já usa a CAIXA numa modalidade e o concorrente em outra.
+  parametros: {valor_minimo: 100000}
+  base: Instrumentos dos últimos anos.
+  status: ativa
+
+VC-02:
+  nome: Conta CAIXA para a transferência do Fundo a Fundo
+  frente: Venda cruzada
+  descricao: Ente que já transfere recursos do Fundo a Fundo do BB para conta do próprio CNPJ.
+  parametros: {valor_minimo: 50000}
+  base: Lançamentos do Fundo a Fundo (CNPJ do favorecido).
+  status: validar
+
+VC-03:
+  nome: Domicílio bancário dos fornecedores
+  frente: Venda cruzada
+  descricao: Ente com conta CAIXA que paga muito a fornecedores de outros bancos.
+  parametros: {valor_minimo: 500000}
+  base: Lançamentos bancários.
+  status: ativa
+
+VC-04:
+  nome: Aplicação do saldo parado
+  frente: Venda cruzada
+  descricao: Conta CAIXA com saldo alto e sem aplicação ou resgate nos lançamentos dos últimos 12 meses.
+  parametros: {saldo_minimo: 1000000}
+  base: Lançamentos bancários (aplicação/resgate).
+  status: ativa
+
+VC-05:
+  nome: Relacionamento antes do crédito
+  frente: Venda cruzada
+  descricao: Ente que vai receber crédito relevante em conta CAIXA nos próximos 90 dias.
+  parametros: {valor_minimo: 1000000, dias: 90}
+  base: Dinheiro a receber (REC-01, REC-02).
+  status: ativa
+
+PRI-01:
+  nome: Chance de conversão
+  frente: Priorização
+  descricao: >-
+    Nota de 0 a 100 de quão perto o ente está da CAIXA: já é cliente em outra modalidade, usa mais de um banco,
+    foi perdido há pouco, já faz transferência secundária do Fundo a Fundo. Desconta quem está há muitos anos
+    só no concorrente.
+  parametros: {cliente_outra_modalidade: 35, multibanco: 20, perdido_recente: 20, transf_secundaria: 15,
+               tem_conta_caixa: 10, so_concorrente_ha_anos: -20}
+  base: Premissa comercial — calibrar com o resultado das abordagens (carteira).
+  status: validar
+
+PRI-02:
+  nome: Matriz de priorização
+  frente: Priorização
+  descricao: >-
+    Cruza potencial de custódia com chance de conversão. Atacar já = potencial alto e chance alta;
+    Construir relação = potencial alto e chance baixa; Ganho rápido = potencial menor e chance alta;
+    Monitorar = o resto.
+  parametros: {percentil_potencial_alto: 0.75, chance_alta: 50}
+  base: Convenção do painel.
+  status: ativa
+
+DIM-01:
+  nome: Radar do ente
+  frente: Assessoria
+  descricao: >-
+    Sete dimensões de 0 a 100, pela posição do ente entre todos: tamanho, disputa, potencial, crédito a
+    receber, risco, venda cruzada e chance de conversão.
+  parametros: {}
+  base: Motores do painel.
+  status: ativa
+
+QLD-01:
+  nome: Saldo desatualizado
+  frente: Qualidade dos dados
+  descricao: >-
+    O saldo publicado tem a data do extrato. Se o saldo de um banco numa modalidade é mais antigo que o limite,
+    comparações de custódia daquele banco ficam distorcidas e o painel avisa. Na carga de 31/10/2026, todo o
+    saldo CAIXA das Transferências Especiais (R$ 3,8 bi, 14,4 mil contas) é de abril/2025, enquanto o do BB é
+    atualizado mês a mês até out/2026.
+  parametros: {dias_limite: 60}
+  base: Campo de data do saldo da API de Transferências Especiais; convênios e Fundo a Fundo não trazem data.
+  status: ativa
+
+QLD-02:
+  nome: Histórico sem perda
+  frente: Qualidade dos dados
+  descricao: >-
+    Toda tabela baixada entra no histórico de mudanças. A cada carga, o painel reconstrói o dia a partir do
+    histórico e compara linha a linha com a fonte; qualquer diferença vira erro em Qualidade e atualização.
+    Uma foto completa mensal (todas as colunas da API e os CSVs originais) fica guardada à parte, como segurança.
+  parametros: {foto_completa: mensal}
+  base: Repositório de dados do painel.
+  status: ativa
+
+QLD-03:
+  nome: Auditoria diária da carga
+  frente: Qualidade dos dados
+  descricao: >-
+    Depois de cada carga, oito famílias de checagem sobre a carga bruta: completude (informado × recebido e queda
+    contra a carga anterior), estrutura (mudança de colunas), identificadores (chaves únicas), domínios (CNPJ com
+    dígito válido, UF, banco, datas, valores negativos), integridade entre tabelas, coerência (pago ≤ empenhado,
+    desembolsado ≤ repasse), frescor (atualização do governo e último extrato por banco) e reconciliação (bruto ×
+    painel). Resultado com status, impacto no painel, histórico e relatório HTML do dia.
+  parametros: {queda_registros_atencao: 0.02, queda_registros_critico: 0.10, dias_limite_extrato: 60}
+  base: Carga bruta do dia e tabelas publicadas.
+  status: ativa
+
+JAN-01:
+  nome: Janela de escolha do banco
+  frente: Janela de escolha
+  descricao: >-
+    O banco da conta é decidido num momento curto: na ciência/indicação do plano das Transferências Especiais e
+    antes da assinatura e abertura da conta do convênio. Entram na janela os instrumentos ativos em cinco estágios:
+    banco ainda não escolhido; conta com erro de abertura; conta ainda não aberta (cadastrada, registrada,
+    aguardando aprovação, pendente de regularização); antes da assinatura do convênio; impedido (pode ser liberado).
+    Probabilidade CAIXA = 60% histórico do ente + 40% histórico do parlamentar (só o que existir; sem histórico,
+    50%). Banco já indicado: CAIXA no mínimo 70%, concorrente no máximo 45%. Valor em disputa = valor × (1 − prob.).
+  parametros: {peso_ente: 0.6, peso_parlamentar: 0.4}
+  base: Situação do plano/convênio e da conta (Transferegov e Siconv); escolhas anteriores do ente e do parlamentar.
+  status: validar
+
+RIS-07:
+  nome: Participação CAIXA em queda no ente
+  frente: Radar de risco
+  descricao: A participação CAIXA do ente caiu muito entre os dois últimos anos com instrumentos (troca parcial de banco).
+  parametros: {queda_pp: 0.25, valor_minimo: 50000}
+  base: Banco escolhido por ano (ESC-01).
+  status: ativa
+
+RIS-08:
+  nome: Parlamentar levando menos à CAIXA
+  frente: Radar de risco
+  descricao: Autor de emendas cuja participação CAIXA caiu entre os dois últimos anos — afeta todos os entes que ele atende.
+  parametros: {queda_pp: 0.20, valor_minimo: 1000000}
+  base: Emendas e banco dos instrumentos.
+  status: ativa
+
+RIS-09:
+  nome: Janela de escolha tendendo ao concorrente
+  frente: Radar de risco
+  descricao: Ente com instrumentos na janela de escolha e tendência ao concorrente — recurso novo pode não vir à CAIXA.
+  parametros: {}
+  base: Janela de escolha (JAN-01).
+  status: ativa
+
+RIS-10:
+  nome: Conta CAIXA com erro de abertura
+  frente: Radar de risco
+  descricao: O ente indicou a CAIXA, mas a abertura da conta falhou — risco de reindicar outro banco.
+  parametros: {}
+  base: Situação da conta no Transferegov.
+  status: ativa
+
+RIS-11:
+  nome: Órgão concedente levando menos à CAIXA
+  frente: Radar de risco
+  descricao: Ministério/órgão cuja participação CAIXA nos convênios caiu entre os dois últimos anos.
+  parametros: {queda_pp: 0.20, valor_minimo: 1000000}
+  base: Órgão superior e banco dos convênios.
+  status: ativa
+
+FOR-01:
+  nome: Ente que não direciona recursos à CAIXA
+  frente: Relacionamento
+  descricao: >-
+    Ente público com volume relevante nos últimos 3 anos e participação CAIXA baixa. Motivos prováveis tirados
+    dos dados: fidelidade ao concorrente, parlamentar ou órgão que operam no concorrente, fornecedores pagos em
+    outro banco, conta do Fundo a Fundo no BB, ex-cliente CAIXA. Cada motivo vem com a ação sugerida.
+  parametros: {valor_minimo: 100000, part_maxima: 0.2}
+  base: Escolhas de banco, emendas, órgãos, lançamentos bancários.
+  status: ativa
+
+FOR-02:
+  nome: Parlamentar ou órgão que não direciona à CAIXA
+  frente: Relacionamento
+  descricao: Autor de emendas ou órgão concedente com volume relevante e participação CAIXA baixa.
+  parametros: {valor_minimo: 1000000, part_maxima: 0.3}
+  base: Emendas e órgãos dos instrumentos.
+  status: ativa
+
+SAU-01:
+  nome: Fundo de saúde com saldo no concorrente
+  frente: Outros repasses
+  descricao: >-
+    Fundo municipal ou estadual de saúde com conta do FNS em outro banco e saldo publicado acima do mínimo.
+    O FNS abre a conta no BB ou na CAIXA; a possibilidade de o ente pedir a conta na CAIXA deve ser
+    validada com as áreas jurídica e de conformidade. Conciliação 01/11/2026: o saldo publicado é o das
+    contas dos blocos antigos (1 a 8, antes de 2018), não o das contas que recebem os repasses de hoje
+    (blocos 10 e 11); a regra aponta saldo remanescente, não a custódia corrente.
+  parametros: {saldo_minimo: 100000}
+  base: Consulta FNS (contas, pagamentos e último saldo por conta).
+  status: ativa
+  premissa: validar
+
+OUT-01:
+  nome: Repasses sem banco na fonte aberta
+  frente: Outros repasses
+  descricao: >-
+    FUNDEB, FPM (Tesouro), FNDE e FNAS (Portal da Transparência) mostram o valor por município, mas não o banco
+    da conta. Entram no painel como volume (potencial de relacionamento), sem participação CAIXA.
+  parametros: {}
+  base: Tesouro (API de transferências constitucionais) e Portal da Transparência (arquivo mensal).
+  status: ativa
+
+OUT-02:
+  nome: Janela de 12 meses dos outros repasses
+  frente: Outros repasses
+  descricao: Os totais usam os 12 últimos meses publicados de cada fonte (as fontes publicam com atrasos diferentes).
+  parametros: {meses: 12}
+  base: Ano e mês de cada repasse.
+  status: ativa
+
+CRM-01:
+  nome: Prioridade do CRM
+  frente: CRM
+  descricao: >-
+    Nota 0–100 por ente = 35% potencial de custódia + 25% dinheiro recebido da União sem banco conhecido (12 meses)
+    + 20% valor na janela de escolha + 10% presença CAIXA no município (Bolsa Família) + 10% emendas pagas ao ente.
+    Cada componente é o percentil entre os entes que têm valor no componente (zero vale zero). Presença CAIXA =
+    intensidade do Bolsa Família pago no município (a CAIXA paga em todos; o que diferencia é o volume).
+    Emendas = pagamentos dos últimos 12 meses. Sanção vigente (CON-02/CON-03) zera a nota até análise.
+  parametros: {pesos: {potencial: 0.35, sem_banco: 0.25, janela: 0.20, presenca: 0.10, emendas: 0.10}}
+  base: Portal da Transparência (recursos recebidos, emendas, Bolsa Família) + motores do painel.
+  status: ativa
+  premissa: validar
+
+CRM-02:
+  nome: Carteira total do ente
+  frente: CRM
+  descricao: >-
+    Recebido em 12 meses (Portal) = na CAIXA (banco conhecido) + no concorrente (banco conhecido) + sem banco
+    conhecido. Banco conhecido vem do FNS e das ordens bancárias das Especiais; é parte do recebido, nunca somado a
+    ele. Se passar do recebido, é contradição entre fontes e vai para a auditoria.
+  parametros: {janela_meses: 12}
+  base: Portal (recursos recebidos), FNS, Transferegov (ordens bancárias).
+  status: ativa
+
+CON-01:
+  nome: Fornecedor sancionado pago durante a sanção
+  frente: Conformidade
+  descricao: Pagamento a CNPJ do CEIS ou CNEP com data dentro do período da sanção, saído de conta de transferência.
+  parametros: {}
+  base: Portal (CEIS, CNEP) + extratos e relatórios de pagamento do Transferegov.
+  status: ativa
+  premissa: validar
+
+CON-02:
+  nome: Entidade impedida recebendo recursos
+  frente: Conformidade
+  descricao: CNPJ no CEPIM com recebimento de recursos federais (Portal) depois do início do impedimento.
+  parametros: {}
+  base: Portal (CEPIM, recursos recebidos).
+  status: ativa
+  premissa: validar
+
+CON-03:
+  nome: Ente da prospecção com sanção vigente
+  frente: Conformidade
+  descricao: Ente da lista de potencial com registro vigente no CEIS, CNEP ou CEPIM; analisar antes de abordar.
+  parametros: {}
+  base: Portal (sanções) + potencial de custódia.
+  status: ativa

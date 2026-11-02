@@ -1,0 +1,11 @@
+pandas>=2.2
+pyarrow>=15
+requests>=2.31
+PyYAML>=6.0
+streamlit>=1.44
+pydeck>=0.9
+streamlit-echarts>=0.4.0
+streamlit-aggrid>=1.0.5
+plotly>=5.20
+openpyxl>=3.1
+pytest>=8

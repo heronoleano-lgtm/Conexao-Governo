@@ -1,0 +1,29 @@
+[server]
+headless = true
+port = 8501
+# "localhost" = só este computador. Para a equipe acessar pela rede ou pelo Tailscale,
+# troque para "0.0.0.0" (veja o README, seção "Acesso da equipe").
+address = "localhost"
+
+[browser]
+gatherUsageStats = false
+
+# Identidade visual: fundo cinza-azulado claro com cartões brancos, barra lateral azul-marinho
+# (a logo branca da CAIXA aparece nela), azul CAIXA como cor de destaque.
+[theme]
+base = "light"
+primaryColor = "#005CA9"
+backgroundColor = "#F5F7FA"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#101828"
+borderColor = "#E4E9F0"
+showWidgetBorder = true
+baseRadius = "medium"
+font = "sans-serif"
+chartCategoricalColors = ["#005CA9", "#F39200", "#00A19A", "#F2C500", "#8C1D40", "#6C7A89", "#3FA110", "#7E5BB5"]
+
+[theme.sidebar]
+backgroundColor = "#0B2E5C"
+secondaryBackgroundColor = "#123B70"
+textColor = "#E6EEF8"
+borderColor = "#1E4A82"

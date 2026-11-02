@@ -1,0 +1,197 @@
+# Catálogo de perguntas de negócio de um gestor de custódia de transferências federais.
+# Cada pergunta aponta para a tela que responde e as regras usadas. Situação:
+#   respondida = o painel responde com os dados abertos;
+#   parcial    = responde em parte (aproximação ou histórico ainda acumulando);
+#   fonte externa = precisa de dado que não está no Transferegov (ver obs).
+# Para incorporar uma pergunta nova: acrescente aqui, crie a regra em regras.yaml e o motor/tela.
+
+Custódia hoje:
+  - pergunta: Quanto do dinheiro das transferências federais está na CAIXA e quanto no concorrente, por modalidade?
+    tela: Inicio.py
+  - pergunta: Em quais estados e municípios a CAIXA tem menos participação?
+    tela: pages/02_Mapa_da_custodia.py
+  - pergunta: Quanto saldo está parado em contas do concorrente e pode ser disputado?
+    tela: pages/09_Oportunidades.py
+
+Permanência e rentabilidade:
+  - pergunta: Quanto tempo, em média, o dinheiro fica na conta antes de sair, por modalidade, banco e porte do ente?
+    tela: pages/14_Permanencia_e_rentabilidade.py
+    regras: [PERM-01]
+    situacao: parcial
+    obs: Convênios não têm lançamentos na fonte aberta; usam o prazo padrão.
+  - pergunta: Que parte do saldo é estável (fica mais de um ano) e que parte é só de passagem?
+    tela: pages/14_Permanencia_e_rentabilidade.py
+    regras: [PERM-02]
+  - pergunta: Quanto vale por ano a custódia da CAIXA e a do concorrente?
+    tela: pages/14_Permanencia_e_rentabilidade.py
+    regras: [PERM-03]
+  - pergunta: O saldo CAIXA está concentrado em poucos entes?
+    tela: pages/14_Permanencia_e_rentabilidade.py
+    regras: [PERM-04]
+  - pergunta: Quanto os convênios já renderam de aplicação financeira, por banco?
+    tela: pages/14_Permanencia_e_rentabilidade.py
+  - pergunta: Como o saldo variou no dia, na semana, no mês e no ano, por banco, modalidade, UF e ente?
+    tela: pages/15_Evolucao_do_saldo.py
+    situacao: parcial
+    obs: A série diária acumula a partir da primeira carga; a comparação anual fica completa após 12 meses.
+
+Dinheiro que ainda vai chegar:
+  - pergunta: Quanto está empenhado e ainda não foi pago, e em que banco vai cair?
+    tela: pages/16_Dinheiro_a_receber.py
+    regras: [REC-01]
+  - pergunta: Quanto dos convênios ativos ainda falta liberar, por banco?
+    tela: pages/16_Dinheiro_a_receber.py
+    regras: [REC-02]
+  - pergunta: Quando o dinheiro deve chegar (próximos 30, 90, 180 dias)?
+    tela: pages/16_Dinheiro_a_receber.py
+    regras: [REC-01, REC-03]
+  - pergunta: Em que meses do ano os créditos se concentram?
+    tela: pages/16_Dinheiro_a_receber.py
+  - pergunta: Quais entes vão receber crédito em conta do concorrente em breve (agir antes do crédito)?
+    tela: pages/16_Dinheiro_a_receber.py
+  - pergunta: Qual será o volume de emendas do próximo ano (Lei Orçamentária)?
+    situacao: fonte externa
+    obs: Precisa da LOA e das indicações de emendas (Siop / Câmara); não está no Transferegov.
+
+Radar de risco:
+  - pergunta: Quais entes estão migrando da CAIXA para o concorrente?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-01]
+  - pergunta: Quais convênios com saldo na CAIXA vencem nos próximos 90 ou 180 dias?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-02]
+  - pergunta: Onde o saldo CAIXA caiu mais no último mês?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-03]
+    situacao: parcial
+    obs: Depende de 30 dias de série diária.
+  - pergunta: Quais entes CAIXA pagam os fornecedores em outros bancos?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-04]
+  - pergunta: Quais entes dependem de um único parlamentar (risco na troca de mandato)?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-05]
+  - pergunta: Há movimentações que conflitam com a Portaria Conjunta 15/2025?
+    tela: pages/31_CRM_Conformidade.py
+    regras: [RIS-06]
+
+Janela de escolha do banco:
+  - pergunta: Quais repasses estão agora no momento de escolha do banco (banco não indicado, conta não aberta, erro de abertura, antes da assinatura)?
+    tela: pages/26_Janela_de_escolha.py
+    regras: [JAN-01]
+  - pergunta: Qual a tendência de cada um (CAIXA ou concorrente) pelo histórico do ente e do parlamentar?
+    tela: pages/26_Janela_de_escolha.py
+    regras: [JAN-01]
+  - pergunta: Em que meses os entes escolhem o banco e quando é a próxima janela?
+    tela: pages/26_Janela_de_escolha.py
+  - pergunta: Com quais parlamentares falar antes da escolha?
+    tela: pages/26_Janela_de_escolha.py
+
+Relacionamento:
+  - pergunta: Quais entes públicos não direcionam recursos à CAIXA, e por quê?
+    tela: pages/13_Radar_de_risco.py
+    regras: [FOR-01]
+  - pergunta: Quais parlamentares e órgãos operam pouco com a CAIXA?
+    tela: pages/13_Radar_de_risco.py
+    regras: [FOR-02]
+  - pergunta: Quais parlamentares e órgãos estão levando menos à CAIXA do que antes?
+    tela: pages/13_Radar_de_risco.py
+    regras: [RIS-08, RIS-11]
+
+Matriz de escolhas:
+  - pergunta: Qual banco cada ente escolheu em cada modalidade e ano?
+    tela: pages/17_Matriz_de_escolhas.py
+    regras: [ESC-01]
+  - pergunta: Quantos entes usam a CAIXA nos convênios e o concorrente nas Transferências Especiais (e vice-versa)?
+    tela: pages/17_Matriz_de_escolhas.py
+  - pergunta: Quão fiéis são os entes ao banco de um ano para o outro, e para onde vão os que trocam?
+    tela: pages/17_Matriz_de_escolhas.py
+    regras: [ESC-02]
+
+Entes perdidos:
+  - pergunta: Quais entes já foram da CAIXA e hoje estão no concorrente? Desde quando, para qual banco, quanto?
+    tela: pages/18_Entes_perdidos.py
+    regras: [PER-01]
+  - pergunta: Quanto daria para reconquistar e por onde começar?
+    tela: pages/18_Entes_perdidos.py
+  - pergunta: Há agência CAIXA no município dos entes perdidos?
+    situacao: fonte externa
+    obs: Precisa do cadastro de agências do Banco Central (próxima fase).
+
+Venda cruzada:
+  - pergunta: Quais entes já são clientes CAIXA numa modalidade e escolhem o concorrente em outra?
+    tela: pages/19_Venda_cruzada.py
+    regras: [VC-01]
+  - pergunta: Quais entes do Fundo a Fundo já transferem recursos para conta própria e podem receber na CAIXA?
+    tela: pages/19_Venda_cruzada.py
+    regras: [VC-02]
+  - pergunta: Quais fornecedores recebem muito de entes CAIXA e não têm domicílio na CAIXA?
+    tela: pages/07_Fornecedores_e_pagamentos.py
+    regras: [VC-03]
+  - pergunta: Quais contas CAIXA têm saldo alto sem aplicação?
+    tela: pages/19_Venda_cruzada.py
+    regras: [VC-04]
+  - pergunta: Quais entes vão receber crédito relevante na CAIXA e merecem uma visita de relacionamento?
+    tela: pages/19_Venda_cruzada.py
+    regras: [VC-05]
+  - pergunta: Quais entes têm folha de pagamento ou arrecadação fora da CAIXA?
+    situacao: fonte externa
+    obs: Dado interno da CAIXA ou do Siconfi/RREO; não está no Transferegov.
+
+Priorização e cenários:
+  - pergunta: Quais entes atacar primeiro, cruzando potencial e chance de conversão?
+    tela: pages/20_Priorizacao_e_cenarios.py
+    regras: [PRI-01, PRI-02]
+  - pergunta: Se a CAIXA chegar a uma meta de participação por UF ou segmento, quanto ganha de custódia e resultado?
+    tela: pages/20_Priorizacao_e_cenarios.py
+    regras: [PERM-03]
+
+Assessoria ao ente:
+  - pergunta: Para um ente, qual o diagnóstico, o que oferecer, com que argumentos e quais riscos?
+    tela: pages/28_CRM_Visao_360.py
+    regras: [DIM-01]
+  - pergunta: Como o ente se compara aos vizinhos do mesmo porte e UF?
+    tela: pages/28_CRM_Visao_360.py
+
+Qualidade e auditoria:
+  - pergunta: A carga de hoje veio completa e coerente? Algum número do painel está comprometido?
+    tela: pages/12_Qualidade_dos_dados.py
+    regras: [QLD-03]
+  - pergunta: Algum banco parou de enviar extrato ao Transferegov?
+    tela: pages/12_Qualidade_dos_dados.py
+    regras: [QLD-01, QLD-03]
+  - pergunta: O histórico guarda tudo sem perda?
+    tela: pages/24_Repositorio_de_dados.py
+    regras: [QLD-02]
+
+Outros repasses (FUNDEB, saúde, educação, assistência):
+  - pergunta: Quanto cada município recebe por ano de FUNDEB, FPM, saúde, educação e assistência social?
+    tela: pages/27_Outros_repasses.py
+    regras: [OUT-01, OUT-02]
+  - pergunta: Quanto dos repasses da saúde (FNS) cai na CAIXA e quanto no BB, e qual o saldo parado em cada um?
+    tela: pages/27_Outros_repasses.py
+  - pergunta: Quais fundos de saúde têm saldo relevante no concorrente?
+    tela: pages/27_Outros_repasses.py
+    regras: [SAU-01]
+  - pergunta: Em que banco caem o FUNDEB, o FNDE e o FNAS?
+    situacao: fonte externa
+    obs: O banco dessas contas não é publicado em fonte aberta; o FNDE exige CAPTCHA na consulta de liberações. Precisa de base interna da CAIXA.
+
+CRM:
+  - pergunta: Quanto cada ente recebe da União, de todas as fontes, e quanto disso tem banco conhecido?
+    tela: pages/28_CRM_Visao_360.py
+    regras: [CRM-02]
+  - pergunta: Quem abordar primeiro e qual a próxima ação?
+    tela: pages/29_CRM_Funil_e_agenda.py
+    regras: [CRM-01]
+  - pergunta: Em que etapa está cada ente e o que vence na agenda da equipe?
+    tela: pages/29_CRM_Funil_e_agenda.py
+  - pergunta: Quais parlamentares mandam dinheiro para entes que operam no concorrente?
+    tela: pages/30_CRM_Rede_de_relacionamento.py
+  - pergunta: Quais fornecedores recebem de entes CAIXA?
+    tela: pages/30_CRM_Rede_de_relacionamento.py
+  - pergunta: Em quais municípios a CAIXA já paga benefícios mas não tem a custódia das transferências?
+    tela: pages/28_CRM_Visao_360.py
+  - pergunta: Há fornecedores sancionados pagos com dinheiro de contas de transferência (inclusive CAIXA)?
+    tela: pages/31_CRM_Conformidade.py
+    regras: [CON-01, CON-02, CON-03]

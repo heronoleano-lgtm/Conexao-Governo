@@ -1,0 +1,176 @@
+# Configuração do Painel de Custódia Transferegov
+# Edite com cuidado: indentação com espaços, não com TAB.
+
+dados:
+  # Fora do OneDrive de propósito: os dados chegam a vários GB e não devem sincronizar.
+  pasta: C:/PainelCustodia/data
+  manter_bruto_dias: 30  # quantos dias de dados brutos guardar
+
+api:
+  base_url: https://api-publica.transferegov.gestao.gov.br
+  tamanho_pagina: 200    # máximo aceito pela API
+  conexoes: 6            # requisições em paralelo (4 a 8 é o recomendado)
+  timeout_seg: 90
+  tentativas: 5
+  user_agent: "PainelCustodia/0.1 (uso interno CAIXA; dados abertos Transferegov)"
+
+modulos:
+  especiais:
+    nome: Transferências Especiais
+    ativo: true
+    endpoints:
+      - programas-especiais
+      - beneficiarios-especiais
+      - planos-acao-especiais
+      - executores-especiais
+      - saldo-conta-gestao-financeira-especiais
+      - empenhos-especiais
+      - documentos-habeis-especiais
+      - ordens-pagamentos-ordens-bancarias-especiais
+      - planos-trabalho-especiais
+      - devolucao-especiais
+      - gestao-financeira-subtransacoes-especiais
+      - finalidade-especiais                          # área de política pública por executor
+      - relatorios-gestao-novos-especiais             # liga o pagamento declarado ao plano
+      - relatorios-gestao-documento-liquidacao-especiais   # quem recebeu (CNPJ/CPF), quanto e quando
+      # débitos das contas (por onde o dinheiro passa e o banco de destino); ~490 mil linhas, 5 a 10 min
+      - nome: gestao-financeira-lancamentos-especiais
+        params: {tipo_operacao_gestao_financeira: D}
+  fundoafundo:
+    nome: Fundo a Fundo
+    ativo: true
+    endpoints:
+      - programas
+      - planos-acao
+      - planos-acao-dados-bancarios
+      - empenhos
+      - termos-adesao
+      - programas-beneficiarios
+      - planos-acao-destinacao-recursos               # natureza da despesa planejada
+      - gestao-financeira-subtransacoes               # beneficiários finais dos pagamentos (~400 mil)
+      # débitos para CNPJ: revela a transferência da conta BB para a conta do próprio ente (CNPJ aberto).
+      # A API do FaF não informa o banco de destino. ~140 mil linhas.
+      - nome: gestao-financeira-lancamentos
+        params: {tipo_operacao_gestao_financeira: D, tipo_favorecido_gestao_financeira: 2}
+  # Módulos exibidos como "em desenvolvimento" no painel
+  parcerias:
+    nome: Gestão de Parcerias
+    ativo: false
+  ted:
+    nome: Termo de Execução Descentralizada
+    ativo: false
+
+csv_discricionarias:
+  ativo: true
+  listagem: /downloads/dadosgov/?restype=container&comp=list
+  download: /downloads/dadosgov/
+  arquivos:
+    - siconv_convenio
+    - siconv_proposta
+    - siconv_emenda
+    - siconv_desembolso
+    # - siconv_pagamento   # fornecedores pagos (356 MB); ative quando quiser o motor de fornecedores das Discricionárias
+  # colunas lidas de cada arquivo (em minúsculas); vazio = todas.
+  # Atenção: o CSV de propostas traz só o NOME do banco (NM_BANCO), sem código.
+  colunas:
+    siconv_proposta: [id_proposta, uf_proponente, munic_proponente, cod_munic_ibge, cod_orgao_sup, desc_orgao_sup,
+                      desc_orgao, identif_proponente, nm_proponente, natureza_juridica, modalidade, nm_banco,
+                      cd_agencia, cd_conta, situacao_conta, ano_prop, vl_repasse_prop, sit_proposta, objeto_proposta]
+    siconv_convenio: [nr_convenio, id_proposta, ano, dia_assin_conv, sit_convenio, instrumento_ativo, ug_emitente,
+                      dia_fim_vigenc_conv, vl_global_conv, vl_repasse_conv, vl_contrapartida_conv, vl_empenhado_conv,
+                      vl_desembolsado_conv, vl_saldo_conta, vl_rendimento_aplicacao, ind_opera_obtv]
+    siconv_emenda: [id_proposta, nr_emenda, nome_parlamentar, tipo_parlamentar, ind_impositivo,
+                    valor_repasse_emenda, beneficiario_emenda]
+    siconv_pagamento: [nr_convenio, identif_fornecedor, nome_fornecedor, tp_mov_financeira, data_pag, vl_pago]
+
+referencias:
+  siconfi_entes: https://apidatalake.tesouro.gov.br/ords/siconfi/tt/entes
+  municipios_coordenadas: https://raw.githubusercontent.com/kelvins/municipios-brasileiros/main/csv/municipios.csv
+
+historico:
+  # tabela -> chave única; o histórico grava só o que mudou (SCD2)
+  especiais/planos-acao-especiais: id_plano_acao
+  especiais/executores-especiais: id_executor
+  especiais/saldo-conta-gestao-financeira-especiais: id_agencia_conta
+  fundoafundo/planos-acao: id_plano_acao
+  fundoafundo/planos-acao-dados-bancarios: id_plano_acao_dado_bancario
+  discricionarias_csv/siconv_convenio: nr_convenio
+
+outras_fontes:
+  # Outras transferências federais custodiadas em bancos oficiais. Cada fonte roda na sua periodicidade.
+  ativo: true
+  anos: 2                       # ano corrente e anterior
+  tesouro:                      # FUNDEB e constitucionais — API do Tesouro Transparente
+    ativo: true
+    a_cada_dias: 1
+    codigos: [10, 14, 3, 7, 12]  # FUNDEB, Ajuste FUNDEB, FPM, FPE, Royalties/CFEM
+  fns:                          # Saúde — consulta pública do Fundo Nacional de Saúde (contas com banco e saldo)
+    ativo: true
+    a_cada_dias: 7              # coleta pesada (milhares de fundos): semanal
+    anos: 1
+    conexoes: 6
+    saldo: true                 # busca o último saldo de cada conta (a parte mais demorada)
+  portal:                       # Educação (FNDE) e Assistência social (FNAS) — Portal da Transparência
+    ativo: true
+    a_cada_dias: 7
+    meses: 13
+
+repositorio:
+  # Todas as tabelas baixadas entram no histórico (SCD2): grava só o que muda e, a cada carga, o painel prova
+  # que o dia reconstruído é idêntico à fonte (regra QLD-02) — por isso não é preciso guardar a carga inteira
+  # todo dia. Foto completa (todas as colunas da API + CSVs originais, independente do histórico):
+  #   "mensal" (padrão: primeira carga de cada mês, ~0,5 GB/mês), "diaria" (~0,5 GB/dia) ou "nunca".
+  # Foto avulsa: carga_diaria.bat --foto     Reconstruir um dia: reconstruir_dia.bat AAAA-MM-DD
+  foto_completa: mensal
+
+motores:
+  saldo_alto_concorrente: 1000000     # R$ acima do qual o saldo no concorrente vira janela
+  pesos_score:                        # somam 100
+    valor_concorrente: 30
+    saldo_concorrente: 25
+    janelas_abertas: 20
+    multibanco: 15
+    vazamento: 10
+  anos_recentes: 2                    # anos considerados "recentes" no score e na rotação
+  # módulos em que o ente escolhe o banco; o Fundo a Fundo é operado só pelo BB e fica fora
+  # do perfil, das janelas e do score (continua na participação e na custódia)
+  modulos_disputaveis: [Especiais, Discricionárias]
+  taxa_referencia_aa: 10.5            # % ao ano usada para estimar o valor econômico da custódia
+  fracao_resultado: 0.30              # fração da taxa que vira resultado para o banco (premissa ajustável)
+  dias_permanencia_padrao: 180        # quando não há histórico suficiente para medir a permanência
+  data_portaria_15_2025: "2025-07-28" # a partir daqui, saída para outra conta do ente é sinal de conformidade
+
+qualidade:
+  tolerancia_contagem: 0.0   # diferença aceita entre total_items e linhas carregadas
+  variacao_max_custodia: 0.25  # variação diária que gera alerta
+
+portal_api:
+  # API de dados do Portal da Transparência (CGU) para o CRM. A chave pessoal fica em config/segredos.yaml
+  # (portal_api_chave: ...), nunca aqui. Limite oficial: 400/min das 6h às 24h e 700/min das 0h às 6h.
+  ativo: true
+  limite_dia: 350               # chamadas por minuto (com folga)
+  limite_noite: 650
+  max_chamadas: 20000           # por carga; o que faltar continua na próxima (a fila retoma)
+  max_minutos: 90
+  conexoes: 4             # consultas em paralelo (o ritmo total continua dentro do limite da API)
+  recursos:                     # tudo o que cada ente recebe da União, por mês e UF
+    ativo: true
+    meses: 13
+    atraso_meses: 1
+    a_cada_dias: 7
+  emendas:                      # todas as modalidades de emenda
+    ativo: true
+    anos: 3
+    a_cada_dias: 7
+  documentos_emendas:           # pagamentos das emendas e quem recebeu
+    ativo: true
+    max_emendas: 3000           # as de maior valor pago primeiro
+    detalhar_pagamentos: true
+    max_detalhes: 5000
+  sancoes:                      # CEIS, CNEP, CEPIM
+    ativo: true
+    a_cada_dias: 7
+  presenca:                     # Novo Bolsa Família por município (pago pela CAIXA)
+    ativo: true
+    meses: 1
+    atraso_meses: 2
