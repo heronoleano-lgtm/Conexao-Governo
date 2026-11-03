@@ -620,7 +620,7 @@ def mapa_brasil(df: pd.DataFrame, geojson: dict, nome_mapa: str, coluna: str, fo
                         "seriesIndex": 0, "orient": "vertical", "left": 8, "bottom": 16, "itemHeight": 120,
                         "inRange": {"color": cores}, "text": ["mais", "menos"],
                         "formatter": _js(f"function(v){{{_JS_NUM} return __f(v,'{formato}');}}")},
-          "geo": {"map": nome_mapa, "roam": True, "nameProperty": "codarea", "scaleLimit": {"min": 0.8, "max": 14},
+          "geo": {"map": nome_mapa, "roam": "move", "nameProperty": "codarea", "scaleLimit": {"min": 0.8, "max": 14},
                   "itemStyle": {"areaColor": "#EEF2F7", "borderColor": "#FFFFFF", "borderWidth": 0.6},
                   "emphasis": {"label": {"show": False}, "itemStyle": {"areaColor": CAIXA_LARANJA}},
                   "select": {"disabled": True}, "layoutCenter": ["50%", "52%"], "layoutSize": "95%"},
@@ -783,7 +783,7 @@ def rede(arestas: pd.DataFrame, chave: str, altura: int = 620, foco: str | None 
     op.update({
         "tooltip": {"formatter": _js(f"function(p){{{_JS_NUM} if(p.dataType==='edge') return '<b>'+p.data.sn+'</b> → <b>'+p.data.tn+'</b><br>'+__f(p.data.value,'brl'); return '<b>'+p.name+'</b><br>'+__f(p.value,'brl');}}")},
         "legend": {"data": cats, "top": 4, "left": "center"},
-        "series": [{"type": "graph", "layout": "force", "roam": True, "draggable": True, "data": dados, "links": links,
+        "series": [{"type": "graph", "layout": "force", "roam": "move", "draggable": True, "data": dados, "links": links,
                     "categories": [{"name": c, "itemStyle": {"color": CORES_REDE.get(c, "#5B6573")}} for c in cats],
                     "force": {"repulsion": 160, "edgeLength": [40, 160], "gravity": 0.08},
                     "label": {"position": "right", "fontSize": 11, "color": "#344054"},

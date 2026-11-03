@@ -122,8 +122,9 @@ def test_ponta_a_ponta(ambiente):
     assert {"Fulano", "Beltrana", "Sicrano", "FULANO", "BELTRANA"} <= set(parl.index)
     assert parl.loc["BELTRANA", "part_caixa"] == 0
     org = _ler_mart(cam, "mart_orgaos")
-    assert {"MinC", "MINISTÉRIO DAS CIDADES", "MINISTÉRIO DA SAÚDE"} <= set(org["orgao"])
-    assert org.loc[org["orgao"] == "MinC", "saldo"].sum() == pytest.approx(4_500_000)
+    assert {"Ministério da Cultura", "MINISTÉRIO DAS CIDADES", "MINISTÉRIO DA SAÚDE"} <= set(org["orgao"])   # MinC por extenso (03/11)
+    assert "MinC" not in set(org["orgao"])
+    assert org.loc[org["orgao"] == "Ministério da Cultura", "saldo"].sum() == pytest.approx(4_500_000)
     dest = _ler_mart(cam, "mart_destinacao")
     assert {"Urbanismo", "Saúde", "CUSTEIO"} <= set(dest["tipo"])
     forn = _ler_mart(cam, "mart_fornecedores")

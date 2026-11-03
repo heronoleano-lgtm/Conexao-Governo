@@ -448,7 +448,7 @@ def gravar(aud: pd.DataFrame, dados: Path) -> Path:
 .cs{{display:flex;gap:12px;margin:16px 0}}.c{{border-left:6px solid;padding:8px 14px;background:#F8FAFD;border-radius:8px}}
 .c b{{font-size:1.6rem;display:block}}table{{border-collapse:collapse;width:100%;font-size:.86rem}}
 td,th{{border-bottom:1px solid #E3E8EF;padding:6px 8px;text-align:left;vertical-align:top}}th{{background:#F4F7FB}}</style>
-<h1>Auditoria da carga · {dia}</h1><p>Painel de Custódia · fonte Transferegov.br</p><div class=cs>{cartoes}</div>
+<h1>Auditoria da carga · {dia}</h1><p>Conexão Governo · CAIXA · fonte Transferegov.br</p><div class=cs>{cartoes}</div>
 <h3>Leitura</h3><ul>{resumo}</ul><h3>Checagens</h3><table><tr><th>Status</th><th>Família</th><th>Tabela</th>
 <th>Checagem</th><th>Medido</th><th>Referência</th><th>Detalhe</th><th>Impacto no painel</th></tr>{linhas}</table></html>"""
     arq = pasta / f"relatorio_{dia}.html"

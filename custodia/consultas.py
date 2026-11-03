@@ -766,3 +766,66 @@ def pagamentos_terceiros_por_ente(d) -> pd.DataFrame:
     g["pago_caixa"] = g["cnpj_ente"].map(x[x["grupo_destino"] == "CAIXA"].groupby("cnpj_ente")["valor"].sum()).fillna(0)
     g["periodo"] = f"{(corte - pd.Timedelta(days=364)).strftime('%m/%Y')} a {corte.strftime('%m/%Y')}"
     return g[cols]
+
+
+# ------------------------------------------------------------------ ciclo da escolha do banco (Janela de escolha)
+@memo(8)
+def ciclo_escolha(d: dict) -> dict:
+    """Quando o banco é escolhido (aceite/ciência do plano) × quando o dinheiro cai (ordem bancária), nas
+    Transferências Especiais, e o que acontece entre uma escolha e a próxima. Tudo medido nos dados:
+    - meses de escolha e de crédito (% do valor de cada mês, todos os anos);
+    - janelas de cada ano (meses que somam 80% das escolhas do ano) e participação CAIXA nelas;
+    - dias do aceite à primeira ordem bancária (mediana, P25, P75);
+    - contas por plano (desde 2024 cada transferência tem conta própria) e troca de banco entre anos."""
+    from .motores_gestor import MESES
+    out: dict = {}
+    cal = d.get("mart_calendario_escolha", pd.DataFrame())
+    cal = cal[cal["modulo"] == "Especiais"] if not cal.empty else cal
+    saz = d.get("mart_sazonalidade", pd.DataFrame())
+    if not cal.empty:
+        esc = cal.groupby("mes")["valor"].sum().reindex(range(1, 13), fill_value=0)
+        cre = (saz.set_index("mes")["valor_pago"].reindex(range(1, 13), fill_value=0) if not saz.empty
+               else pd.Series(0.0, index=range(1, 13)))
+        out["meses"] = pd.DataFrame({"mes": range(1, 13), "mes_nome": MESES,
+                                     "escolha_pct": (esc / max(esc.sum(), 1)).values,
+                                     "credito_pct": (cre / max(cre.sum(), 1)).values})
+        anos = []
+        for ano, g in cal.groupby("ano"):
+            g = g.sort_values("valor", ascending=False)
+            acum = g["valor"].cumsum() / max(g["valor"].sum(), 1)
+            jan = g[acum.shift(fill_value=0) < 0.8].sort_values("mes")
+            anos.append({"ano": int(ano), "meses_da_janela": ", ".join(MESES[int(m) - 1] for m in jan["mes"]),
+                         "planos": int(g["instrumentos"].sum()), "valor": float(g["valor"].sum()),
+                         "part_caixa": float(g["valor_caixa"].sum() / g["valor"].sum()) if g["valor"].sum() else np.nan})
+        out["janelas"] = pd.DataFrame(anos).sort_values("ano", ascending=False)
+    fi = d.get("fato_instrumento", pd.DataFrame())
+    pi = d.get("fato_pipeline", pd.DataFrame())
+    if not fi.empty and not pi.empty and "data_ob" in pi:
+        e = fi[fi["modulo"] == "Especiais"][["id_instrumento", "data_referencia", "id_agencia_conta", "ano"]].copy()
+        e["_ac"] = normaliza.data(e["data_referencia"])
+        ob = pi.assign(_ob=normaliza.data(pi["data_ob"])).dropna(subset=["_ob"]).groupby("id_instrumento")["_ob"].min()
+        e["_ob"] = e["id_instrumento"].astype(str).map(ob.rename(index=str))
+        dias = (e["_ob"] - e["_ac"]).dt.days
+        dias = dias[(dias >= 0) & dias.notna()]
+        if not dias.empty:
+            out["dias_ate_credito"] = {"mediana": float(dias.median()), "p25": float(dias.quantile(.25)),
+                                       "p75": float(dias.quantile(.75)), "n": int(len(dias))}
+        c = e.dropna(subset=["id_agencia_conta", "ano"])
+        if not c.empty:
+            out["contas_por_ano"] = (c.groupby("ano").agg(planos=("id_instrumento", "count"),
+                                                          contas=("id_agencia_conta", "nunique"))
+                                     .assign(planos_por_conta=lambda x: x["planos"] / x["contas"]).reset_index())
+    ee = d.get("mart_escolha_ente", pd.DataFrame())
+    if not ee.empty:
+        x = ee[ee["modulo"] == "Especiais"].dropna(subset=["ano"])
+        piv = x.pivot_table(index="cnpj_ente", columns=x["ano"].astype(int), values="grupo_banco", aggfunc="first")
+        trocas = []
+        anos = sorted(piv.columns)
+        for a, b in zip(anos, anos[1:]):
+            z = piv[[a, b]].dropna()
+            if len(z):
+                trocas.append({"de": a, "para": b, "entes": len(z), "trocaram": int((z[a] != z[b]).sum()),
+                               "para_caixa": int(((z[a] != "CAIXA") & (z[b] == "CAIXA")).sum()),
+                               "sairam_caixa": int(((z[a] == "CAIXA") & (z[b] != "CAIXA")).sum())})
+        out["trocas"] = pd.DataFrame(trocas)
+    return out

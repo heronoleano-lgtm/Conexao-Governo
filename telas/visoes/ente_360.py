@@ -12,6 +12,7 @@ from custodia import acesso  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 from custodia.ui import cartoes, leitura, pagina, rosca, secao, tabela  # noqa: E402
+from custodia.ui import AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("CRM · Visão 360 do ente",
              "Tudo sobre um ente num lugar: quanto recebe da União (Portal da Transparência), em que banco o dinheiro "
@@ -110,7 +111,7 @@ with aba1:
         comp = pd.Series({"Saúde": c_sel["saude_12m"].sum(), "Educação": c_sel["educacao_12m"].sum(),
                           "Assistência": c_sel["assistencia_12m"].sum(),
                           "Constitucionais": c_sel["constitucionais_12m"].sum(), "Outros": c_sel["outros_12m"].sum()})
-        a, b = st.columns([2, 3])
+        a, b = st.columns(AUREA_INV)
         with a:
             rosca(comp, "Recebido por área (12 meses)", altura=300, chave="crm360_area")
             rosca(pd.Series({"CAIXA": cx, "Concorrente": co, "Sem banco conhecido": sb}), "Em que banco fica",

@@ -14,6 +14,7 @@ from custodia import graficos as g  # noqa: E402
 from custodia.semantica import CAIXA_AZUL, cor_banco, nome_modalidade  # noqa: E402
 from custodia.ui import (baixar, barras_modalidade, cartoes, leitura, pagina, ranking, resumo_detalhe,  # noqa: E402
                          sankey, secao, tabela)
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Fluxo do dinheiro",
              "O caminho do dinheiro em três etapas: de onde vem, em que banco fica guardado e para onde vai quando sai "
@@ -97,7 +98,7 @@ elif etapa.startswith("2"):
     secao("Da modalidade ao banco da conta", "Em que banco cada modalidade guarda o dinheiro.")
     mb = cu["modalidade_banco"].stack().rename("valor").reset_index()
     e = mb.assign(origem=mb["modulo"].map(lambda m: nome_modalidade(m, True)), destino="Conta " + mb["grupo_banco"])
-    c1, c2 = st.columns([3, 2])
+    c1, c2 = st.columns(AUREA)
     with c1:
         sankey(e[["origem", "destino", "valor"]], altura=420, chave="fluxo_2")
     with c2:

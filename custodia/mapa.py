@@ -27,6 +27,69 @@ PALETAS = {
 # participação CAIXA: vermelho (concorrente domina) → cinza (empate) → azul CAIXA
 DIVERGENTE = ["#B4232F", "#E1706A", "#F2B8A8", "#CDD4DF", "#A9C8EA", "#4F8FD6", "#005CA9"]
 SEM_DADO = "#F3F4F6"
+UF_NOME = {"11": ("RO", "Rondônia"), "12": ("AC", "Acre"), "13": ("AM", "Amazonas"), "14": ("RR", "Roraima"),
+           "15": ("PA", "Pará"), "16": ("AP", "Amapá"), "17": ("TO", "Tocantins"), "21": ("MA", "Maranhão"),
+           "22": ("PI", "Piauí"), "23": ("CE", "Ceará"), "24": ("RN", "Rio Grande do Norte"), "25": ("PB", "Paraíba"),
+           "26": ("PE", "Pernambuco"), "27": ("AL", "Alagoas"), "28": ("SE", "Sergipe"), "29": ("BA", "Bahia"),
+           "31": ("MG", "Minas Gerais"), "32": ("ES", "Espírito Santo"), "33": ("RJ", "Rio de Janeiro"),
+           "35": ("SP", "São Paulo"), "41": ("PR", "Paraná"), "42": ("SC", "Santa Catarina"),
+           "43": ("RS", "Rio Grande do Sul"), "50": ("MS", "Mato Grosso do Sul"), "51": ("MT", "Mato Grosso"),
+           "52": ("GO", "Goiás"), "53": ("DF", "Distrito Federal")}
+LIMITE_NOME = 26          # nomes maiores que isto são resumidos nos rótulos do mapa (o nome inteiro fica na dica)
+_PREFIXOS = ("prefeitura municipal de ", "prefeitura municipal da ", "prefeitura municipal do ", "prefeitura de ",
+             "município de ", "municipio de ", "município da ", "municipio da ", "município do ", "municipio do ")
+_ABREV = {"secretaria": "Sec.", "municipal": "Mun.", "estadual": "Est.", "estado": "Est.", "fundação": "Fund.",
+          "fundacao": "Fund.", "instituto": "Inst.", "associação": "Assoc.", "associacao": "Assoc.",
+          "desenvolvimento": "Desenv.", "departamento": "Depto.", "superintendência": "Superint.",
+          "universidade": "Univ.", "federal": "Fed.", "nacional": "Nac.", "consórcio": "Cons.",
+          "consorcio": "Cons.", "intermunicipal": "Intermun.", "assistência": "Assist.", "educação": "Educ.",
+          "companhia": "Cia.", "governo": "Gov.", "saúde": "Saúde", "social": "Social"}
+_MINUSCULAS = {"de", "da", "do", "das", "dos", "e", "a", "o", "em", "para"}
+
+
+def _vazio(v) -> bool:
+    return v is None or (isinstance(v, float) and math.isnan(v)) or str(v).strip() in ("", "nan", "None")
+
+
+def nome_legivel(nome) -> str:
+    """Nome do ente em caixa normal ('MUNICIPIO DE NOVA OLINDA' → 'Nova Olinda')."""
+    if _vazio(nome):
+        return ""
+    t = " ".join(str(nome).split())
+    baixo = t.lower()
+    for pre in _PREFIXOS:
+        if baixo.startswith(pre):
+            t = t[len(pre):]
+            break
+    if t.isupper():
+        t = " ".join((w.lower() if i and w.lower() in _MINUSCULAS else w.capitalize()) for i, w in enumerate(t.split()))
+    return t
+
+
+def resumir(nome, limite: int = LIMITE_NOME) -> str:
+    """Nome curto para rótulo: tira 'Município de', abrevia palavras longas comuns e, se ainda passar do
+    limite, corta na última palavra inteira com '…'."""
+    t = nome_legivel(nome)
+    if len(t) <= limite:
+        return t
+    t = " ".join(_ABREV.get(w.lower(), w) for w in t.split())
+    if len(t) <= limite:
+        return t
+    palavras = t[:limite - 1].rsplit(" ", 1)[0].split()
+    while len(palavras) > 1 and palavras[-1].lower() in _MINUSCULAS:      # não termina em "de", "da"…
+        palavras.pop()
+    corte = " ".join(palavras).rstrip(" ,.-·")
+    return (corte or t[:limite - 1]) + "…"
+
+
+def nome_area(cod: str, nome=None, nomes: dict | None = None) -> str:
+    """Nome da UF ou do município a partir do código IBGE; nunca devolve só o código se houver nome."""
+    cod = str(cod)
+    if len(cod) == 2 and cod in UF_NOME:
+        return f"{UF_NOME[cod][1]} ({UF_NOME[cod][0]})"
+    if not _vazio(nome) and str(nome) != cod and not str(nome).isdigit():
+        return str(nome)
+    return str((nomes or {}).get(cod) or cod)
 CONTORNO = [255, 255, 255, 255]
 
 
@@ -149,35 +212,55 @@ def enquadrar(bbox, largura: int = 1000, altura: int = 560, folga: float = 0.90)
 
 
 # ------------------------------------------------------------------ dicas
-def _dica_area(r: dict, coluna: str, formato: str, titulo: str) -> str:
-    linhas = [f"<div style='font-weight:700;font-size:13px;margin-bottom:4px'>{html.escape(str(r.get('nome', '')))}</div>",
-              f"<div>{html.escape(titulo)}: <b>{_fmt(r.get(coluna), formato)}</b></div>"]
+def _dica_area(r: dict, coluna: str, formato: str, titulo: str) -> dict:
+    """Dica em TEXTO PURO (título, destaque, detalhe): o pydeck escapa HTML vindo dos dados, então a formatação
+    fica no modelo da dica (DICA_HTML) e os dados entram só como texto."""
+    det = []
     for c, rot, f in (("valor", "Valor contratado", "brl"), ("part_caixa", "Participação CAIXA", "pct"),
                       ("saldo_concorrente", "Saldo no concorrente", "brl"), ("potencial", "Potencial de custódia", "brl"),
                       ("entes", "Entes", "int")):
         if c != coluna and c in r and r[c] is not None and not (isinstance(r[c], float) and math.isnan(r[c])):
-            linhas.append(f"<div style='color:#5B6573'>{rot}: {_fmt(r[c], f)}</div>")
-    return "".join(linhas)
+            det.append(f"{rot}: {_fmt(r[c], f)}")
+    return {"dt": str(r.get("nome", "")), "dv": f"{titulo}: {_fmt(r.get(coluna), formato)}",
+            "dd": "\n".join(det + ["Clique para detalhar"])}
 
 
-def _dica_bolha(r: dict, rotulo_cor: str | None) -> str:
-    linhas = [f"<div style='font-weight:700;font-size:13px;margin-bottom:4px'>{html.escape(str(r.get('rotulo', '')))}</div>",
-              f"<div>Valor: <b>{_fmt(r.get('valor'), 'brl')}</b></div>"]
+def _dica_sem_dado(nome: str) -> dict:
+    return {"dt": nome, "dv": "Sem dados com os filtros atuais", "dd": ""}
+
+
+def _dica_bolha(r: dict, rotulo_cor: str | None) -> dict:
+    det = []
     if r.get("part_caixa") is not None and not (isinstance(r["part_caixa"], float) and math.isnan(r["part_caixa"])):
-        linhas.append(f"<div style='color:#5B6573'>Participação CAIXA: {_fmt(r['part_caixa'], 'pct')}</div>")
-    if r.get("entes"):
-        linhas.append(f"<div style='color:#5B6573'>Entes: {int(r['entes'])}</div>")
+        det.append(f"Participação CAIXA: {_fmt(r['part_caixa'], 'pct')}")
     if rotulo_cor and r.get("_cor"):
-        linhas.append(f"<div style='color:#5B6573'>{html.escape(str(r['_cor']))}</div>")
-    return "".join(linhas)
+        det.append(str(r["_cor"]))
+    nomes = [n for n in (r.get("entes_nomes") or []) if n]
+    n = int(r.get("entes") or len(nomes) or 0)
+    if nomes:
+        det.append(f"{n} ente{'s' if n != 1 else ''}:")
+        det += [f"• {x}" for x in nomes]
+        if n - len(nomes) > 0:
+            det.append(f"e mais {n - len(nomes)}")
+    elif n:
+        det.append(f"Entes: {n}")
+    return {"dt": str(r.get("rotulo", "")), "dv": f"Valor: {_fmt(r.get('valor'), 'brl')}", "dd": "\n".join(det)}
+
+
+DICA_HTML = ("<div style='font-weight:700;font-size:13px;margin-bottom:3px'>{dt}</div>"
+             "<div style='font-weight:600'>{dv}</div>"
+             "<div style='color:#5B6573;white-space:pre-line;margin-top:3px'>{dd}</div>")
 
 
 # ------------------------------------------------------------------ montagem
 def montar(df: pd.DataFrame, geojson: dict, coluna: str, formato: str = "brl", escala: str = "Blues",
            bolhas: pd.DataFrame | None = None, cores_bolha: dict | None = None, titulo: str = "",
-           altura: int = 560, largura: int = 820, fundo: str | None = None, rotulos: bool | None = None):
+           altura: int = 560, largura: int = 820, fundo: str | None = None, rotulos: bool | None = None,
+           nomes: dict | None = None, rotulos_bolhas: int = 8):
     """Devolve (deck, legenda) — `deck` é um pydeck.Deck pronto para st.pydeck_chart; `legenda` é um dict
-    com as faixas e cores, para desenhar a legenda em HTML abaixo do mapa."""
+    com as faixas e cores, para desenhar a legenda em HTML abaixo do mapa. `nomes` (código IBGE → nome) dá nome
+    às áreas sem dados; os `rotulos_bolhas` maiores pontos recebem o nome (resumido se for longo).
+    A roda do mouse NÃO aproxima: ela rola a página (aproxima com duplo clique ou clicando na área)."""
     import pydeck as pdk
     from pydeck.types import String as Literal   # sem isto o pydeck trata "pixels" como expressão JS
 
@@ -192,15 +275,15 @@ def montar(df: pd.DataFrame, geojson: dict, coluna: str, formato: str = "brl", e
     feats = []
     for f in feats_in:
         cod = str(f.get("properties", {}).get("codarea", ""))
-        r = por_cod.get(cod, {"codarea": cod, "nome": cod})
+        r = dict(por_cod.get(cod, {"codarea": cod}))
+        r["nome"] = nome_area(cod, r.get("nome"), nomes)
         v = r.get(coluna)
         k = _classe(float(v) if v is not None and v == v else None, limites)
         cor = cores[k] if k is not None and cores else SEM_DADO
-        dica = _dica_area(r, coluna, formato, titulo) if cod in por_cod else \
-            f"<div style='font-weight:700'>{html.escape(str(r.get('nome', cod)))}</div><div style='color:#5B6573'>Sem dados</div>"
-        props = {"codarea": cod, "nome": str(r.get("nome", cod)), "cor": _rgba(cor), "dica": dica, "tipo": "area"}
+        dica = _dica_area(r, coluna, formato, titulo) if cod in por_cod else _dica_sem_dado(str(r.get("nome", cod)))
+        props = {"codarea": cod, "nome": str(r.get("nome", cod)), "cor": _rgba(cor), **dica, "tipo": "area"}
         feats.append({"type": "Feature", "geometry": _arredondar(f.get("geometry")), "properties": props,
-                      "codarea": cod, "dica": dica, "tipo": "area"})
+                      "codarea": cod, **dica, "tipo": "area"})
 
     bbox = caixa(feats)
     lon, lat, zoom = enquadrar(bbox, largura, altura)
@@ -217,7 +300,8 @@ def montar(df: pd.DataFrame, geojson: dict, coluna: str, formato: str = "brl", e
         txt = []
         for f in feats:
             x, y = centro(f["geometry"])
-            txt.append({"p": [x, y], "t": f["properties"]["nome"]})
+            cod = f["properties"]["codarea"]
+            txt.append({"p": [x, y], "t": UF_NOME[cod][0] if cod in UF_NOME else resumir(f["properties"]["nome"], 18)})
         camadas.append(pdk.Layer("TextLayer", txt, id="siglas", get_position="p", get_text="t", get_size=12,
                                  size_units=Literal("pixels"), get_color=[16, 24, 40, 225], font_weight=700,
                                  font_family=Literal("Inter, 'Segoe UI', Arial, sans-serif"),
@@ -241,12 +325,21 @@ def montar(df: pd.DataFrame, geojson: dict, coluna: str, formato: str = "brl", e
             dados = []
             for r in b.to_dict("records"):
                 dados.append({"p": [float(r["lon"]), float(r["lat"])], "raio": float(r["raio"]), "cor": r["cor"],
-                              "dica": _dica_bolha(r, "_cor" in b), "codarea": f"mun:{r.get('cod_ibge', '')}",
-                              "tipo": "bolha"})
+                              **_dica_bolha(r, "_cor" in b), "codarea": f"mun:{r.get('cod_ibge', '')}",
+                              "tipo": "bolha", "t": resumir(r.get("rotulo_curto") or r.get("rotulo", ""))})
             camadas.append(pdk.Layer(
                 "ScatterplotLayer", dados, id="bolhas", pickable=True, get_position="p", get_radius="raio",
                 radius_units=Literal("pixels"), get_fill_color="cor", stroked=True, get_line_color=[255, 255, 255, 230],
                 line_width_min_pixels=1, auto_highlight=True, highlight_color=[255, 194, 14, 220]))
+            maiores = [x for x in dados[:max(rotulos_bolhas, 0)] if x["t"]]
+            if maiores:
+                camadas.append(pdk.Layer(
+                    "TextLayer", [{**x, "off": [0, -(x["raio"] + 9)]} for x in maiores], id="nomes_bolhas",
+                    get_position="p", get_text="t", get_size=11, size_units=Literal("pixels"),
+                    get_color=[16, 24, 40, 235], font_weight=600, get_pixel_offset="off",
+                    font_family=Literal("'Source Sans Pro', 'Segoe UI', Arial, sans-serif"),
+                    outline_width=3, outline_color=[255, 255, 255, 235], font_settings={"sdf": True},
+                    get_text_anchor=Literal("middle"), get_alignment_baseline=Literal("bottom"), pickable=False))
             if "_cor" in b and len(mapa_cor) > 1 or "_cor" in b and list(mapa_cor) != ["Entes"]:
                 leg_bolhas = [(c, mapa_cor[c]) for c in mapa_cor]
 
@@ -262,8 +355,10 @@ def montar(df: pd.DataFrame, geojson: dict, coluna: str, formato: str = "brl", e
                                                                       min_zoom=max(zoom - 1.5, 1), max_zoom=13,
                                                                       pitch=0, bearing=0),
                     views=[pdk.View(type="MapView", controller={"dragRotate": False, "touchRotate": False,
-                                                                "doubleClickZoom": True, "scrollZoom": True})],
-                    tooltip={"html": "{dica}", "style": estilo_dica}, height=altura, **kw)
+                                                                "doubleClickZoom": True, "scrollZoom": False,
+                                                                "keyboard": True, "dragPan": True,
+                                                                "touchZoom": True})],
+                    tooltip={"html": DICA_HTML, "style": estilo_dica}, height=altura, **kw)
     faixas = []
     for i, c in enumerate(cores):
         a, z = limites[i], limites[i + 1]
@@ -293,7 +388,8 @@ def legenda_html(leg: dict) -> str:
             f"<span class='cx-leg-i'><i class='o' style='background:{c}'></i>{html.escape(str(t))}</span>"
             for t, c in leg["bolhas"])
     return (f"<div class='cx-leg'><span class='cx-leg-t'>{html.escape(leg['titulo'])}</span>{itens}{bol}"
-            f"<span class='cx-leg-dica'>Arraste para mover · role para aproximar · clique para detalhar</span></div>")
+            f"<span class='cx-leg-dica'>Arraste para mover · duplo clique aproxima (Shift + duplo clique afasta) · "
+            f"clique para detalhar · a roda do mouse rola a página</span></div>")
 
 
 def clicado(evento) -> str | None:

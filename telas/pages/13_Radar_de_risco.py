@@ -11,6 +11,7 @@ from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 from custodia.semantica import SEVERIDADE_CORES  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, mapa_coropletico, pagina, secao  # noqa: E402
+from custodia.ui import AUREA, AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Radar de risco e relacionamento",
              "Onde a CAIXA pode perder recursos (troca de banco, queda de participação, janela tendendo ao concorrente, "
@@ -52,7 +53,7 @@ with aba1:
         por = rd.groupby("risco", as_index=False).agg(valor_em_risco=("valor_em_risco", "sum"),
                                                       entes=("cnpj_ente", "nunique")).sort_values("valor_em_risco", ascending=False)
         leitura("Leitura", [f"<b>{r.risco}</b>: {q.brl(r.valor_em_risco)} em {r.entes} entes." for r in por.head(5).itertuples()])
-        c1, c2 = st.columns([3, 2])
+        c1, c2 = st.columns(AUREA)
         with c1:
             pe = rd.groupby("cnpj_ente", as_index=False).agg(
                 valor=("valor_em_risco", "sum"),
@@ -94,7 +95,7 @@ with aba3:
             mot = fc["motivos"].str.split("; ").explode().str.replace(r" \(.*?\)| há \d+ anos| leva \d+%.*| opera \d+%.*", "",
                                                                       regex=True)
             mc = mot.value_counts().rename_axis("motivo").reset_index(name="entes")
-            c1, c2 = st.columns([2, 3])
+            c1, c2 = st.columns(AUREA_INV)
             with c1:
                 g.barras(mc, "motivo", {"entes": "Entes"}, chave="for_motivos", formato="int", horizontal=True,
                          altura=320, cores={"Entes": "#F39200"}, titulo="Motivos mais frequentes")

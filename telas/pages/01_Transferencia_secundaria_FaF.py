@@ -9,6 +9,7 @@ import streamlit as st  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia.ui import (baixar, barras_modalidade, cartoes, leitura, mapa_coropletico, pagina, ranking,  # noqa: E402
                          secao, tabela)
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Transferência secundária · Fundo a Fundo",
              "Entes que autorizam a saída do recurso da conta Fundo a Fundo no BB para uma conta do próprio CNPJ. "
@@ -37,7 +38,7 @@ leitura("Atenção", ["O banco que recebe não vem na API do Fundo a Fundo. Para
 
 er = d.get("mart_ente_resumo", pd.DataFrame())
 secao("Onde acontece", "Bolhas: entes que já transferiram (tamanho = valor em 12 meses; cor = já é cliente CAIXA).")
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     if not er.empty:
         b = t.merge(er[["cnpj_ente", "lat", "lon", "part_caixa", "banco_principal", "potencial_custodia",

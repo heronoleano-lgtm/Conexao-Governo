@@ -11,6 +11,7 @@ from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 
 from custodia.ui import baixar, cartoes, leitura, pagina, rosca, secao  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Venda cruzada",
              "Ofertas que nascem dos dados: consolidar modalidades na CAIXA, conta para a transferência do Fundo a "
@@ -33,7 +34,7 @@ cartoes([
     {"rotulo": "Entes com 2 ou mais ofertas", "valor": f"{int((multi >= 2).sum()):,}".replace(",", "."), "cor": "#005CA9",
      "sub": "pacote de relacionamento"},
 ])
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     secao("Ofertas por tipo")
     g.barras(po.sort_values("valor_oportunidade", ascending=False), "oferta", {"valor_oportunidade": "Oportunidade"},

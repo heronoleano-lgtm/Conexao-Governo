@@ -18,113 +18,187 @@ from . import acesso, consultas, dados as _dados_mod, interacao
 from .semantica import (BANCO_CORES, CAIXA_AZUL, CAIXA_LARANJA, EXTRA_CORES, MODALIDADES, SEGMENTO_CORES,
                         cor_banco, nome_modalidade, rotular)
 
-FONTE = "Inter, 'Segoe UI', Roboto, sans-serif"
+NOME = "Conexão Governo"                     # nome da plataforma
+# Source Sans Pro é a fonte do portal da CAIXA (Soluções para o Governo) e a que o Streamlit já traz embutida.
+FONTE = "'Source Sans Pro', 'Source Sans 3', 'Source Sans', 'Segoe UI', Roboto, sans-serif"
+
+# ------------------------------------------------------------------ proporções (regras ESTET-01 a ESTET-08)
+# ESTET-01  Divisões na proporção áurea: conteúdo principal : apoio = φ : 1 (61,8% : 38,2%).
+# ESTET-02  Espaços, margens, folgas e cantos só da escala de Fibonacci (px): 1 2 3 5 8 13 21 34 55 89 144 233 …
+#           (etiquetas em pílula usam canto 999 px = totalmente arredondado).
+# ESTET-03  Tipografia em escala √φ: 12,6 · 16 · 20,4 · 25,9 · 33 · 41,9 px (dois degraus = φ).
+# ESTET-04  Logo: o selo azul mede φ × a altura do X, com a mesma folga nos quatro lados (0,309 × altura do X);
+#           canto = altura do selo ÷ φ⁴; o arquivo da marca nunca é ampliado além do tamanho original.
+# ESTET-05  O bloco de texto ao lado do selo tem a altura do selo: rótulo alinhado ao topo, última linha à base.
+# ESTET-06  Entrada na linha áurea: o espaço vertical livre fica 38,2% acima e 61,8% abaixo da composição.
+# ESTET-07  Cor 60-30-10: neutros na maior parte, azul CAIXA na estrutura, laranja só em destaques.
+# ESTET-08  Equilíbrio e fluxo (princípios do feng shui traduzidos em regra verificável): leitura em Z
+#           (marca no canto superior esquerdo → título → data à direita → conteúdo), respiro em volta da
+#           marca, entrada desobstruída (nada entre a marca e o formulário), cantos suaves, pesos
+#           equilibrados entre esquerda e direita.
+PHI = (1 + 5 ** 0.5) / 2
+AUREA, AUREA_INV = [PHI, 1], [1, PHI]
+FIB = (0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610)
+LOGO_ENTRADA, LOGO_CABECALHO, LOGO_TABELA = 55, 34, 21    # altura do X (px); limitada ao tamanho do arquivo
+ALTURA_ENTRADA = 610       # (Fibonacci) altura aproximada da composição da entrada (selo + texto + formulário), para ESTET-06
+
+
+def _t(n: int) -> str:
+    """Degrau n da escala tipográfica √φ, em rem (0 = 16 px)."""
+    return f"{PHI ** (n / 2):.3f}rem"
+
+
 CSS = f"""
 <style>
 :root {{ --cx-azul: {CAIXA_AZUL}; --cx-laranja: {CAIXA_LARANJA}; --cx-marinho: #0B2E5C; --cx-borda: #E4E9F0;
-  --cx-texto: #101828; --cx-suave: #667085; --cx-sombra: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06); }}
+  --cx-texto: #212121; --cx-suave: #667085; --cx-sombra: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+  --e1: 3px; --e2: 5px; --e3: 8px; --e4: 13px; --e5: 21px; --e6: 34px; --e7: 55px; --e8: 89px;
+  --r1: 5px; --r2: 8px; --r3: 13px; --r4: 21px;
+  --t-1: {_t(-1)}; --t0: {_t(0)}; --t1: {_t(1)}; --t2: {_t(2)}; --t3: {_t(3)}; --t4: {_t(4)}; }}
 html, body, [class*="css"] {{ font-family: {FONTE}; }}
-.block-container {{ padding-top: 1.4rem; padding-bottom: 3rem; max-width: 1560px; }}
+.block-container {{ padding-top: var(--e5); padding-bottom: var(--e7); max-width: 1597px; }}
 h1, h2, h3 {{ letter-spacing: -0.015em; }}
 
-/* cabeçalho da página */
-.cx-cabecalho {{ position: relative; background: #fff; border: 1px solid var(--cx-borda); border-radius: 14px;
-  padding: 18px 24px 18px 28px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;
-  gap: 18px; box-shadow: var(--cx-sombra); overflow: hidden; }}
-.cx-cabecalho::before {{ content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px;
-  background: linear-gradient(180deg, var(--cx-azul) 0%, var(--cx-azul) 70%, var(--cx-laranja) 70%, var(--cx-laranja) 100%); }}
-.cx-cabecalho .cx-sobre {{ font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--cx-azul); margin-bottom: 2px; }}
-.cx-cabecalho h1 {{ font-size: 1.6rem; margin: 0; color: var(--cx-marinho); font-weight: 750; line-height: 1.2; padding: 0; }}
-.cx-cabecalho p {{ margin: 6px 0 0 0; color: #475467; font-size: .92rem; max-width: 1020px; line-height: 1.45; }}
-.cx-cabecalho .cx-data {{ font-size: .78rem; color: var(--cx-suave); text-align: right; white-space: nowrap; line-height: 1.6; }}
+/* cabeçalho da página: selo (φ × X) + bloco de texto com a altura do selo; data à direita equilibra o peso */
+.cx-cabecalho {{ position: relative; background: #fff; border: 1px solid var(--cx-borda); border-radius: var(--r3);
+  padding: var(--e5) var(--e6); margin-bottom: var(--e5); display: flex; justify-content: space-between;
+  align-items: center; gap: var(--e5); box-shadow: var(--cx-sombra); overflow: hidden; }}
+.cx-cabecalho::before {{ content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: var(--e2);
+  background: linear-gradient(180deg, var(--cx-azul) 0%, var(--cx-azul) 61.8%, var(--cx-laranja) 61.8%, var(--cx-laranja) 100%); }}
+.cx-cabecalho .cx-marca {{ display: flex; gap: var(--e5); align-items: flex-start; }}
+.cx-cabecalho .cx-titulos {{ min-height: var(--cx-selo); display: flex; flex-direction: column; justify-content: space-between; }}
+.cx-cabecalho .cx-sobre {{ font-size: var(--t-1); font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--cx-azul); line-height: 1.25; }}
+.cx-cabecalho .cx-sobre b {{ color: var(--cx-laranja); font-weight: 800; }}
+.cx-cabecalho h1 {{ font-size: var(--t2); margin: 0; color: var(--cx-marinho); font-weight: 750; line-height: 1.15; padding: 0; }}
+.cx-cabecalho p {{ margin: var(--e3) 0 0 0; color: #475467; font-size: var(--t0); max-width: 1020px; line-height: 1.45; }}
+.cx-cabecalho .cx-data {{ font-size: var(--t-1); color: var(--cx-suave); text-align: right; white-space: nowrap; line-height: 1.6; }}
 .cx-cabecalho .cx-data b {{ color: var(--cx-texto); font-weight: 600; }}
 .cx-faixa {{ display: none; }}
-/* o X da CAIXA (arquivo da marca sobre o azul institucional) */
-.cx-x {{ background: var(--cx-azul); border-radius: 12px; padding: 9px 11px; display: inline-flex; align-items: center;
-  justify-content: center; box-shadow: 0 2px 6px rgba(0,92,169,.25); flex: none; }}
+/* o X da CAIXA (arquivo da marca sobre o azul institucional); folga e canto vêm de selo_caixa (ESTET-04) */
+.cx-x {{ background: var(--cx-azul); display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 5px rgba(0,92,169,.25); flex: none; box-sizing: border-box; }}
 .cx-x img {{ display: block; }}
+
 /* tela de entrada */
-.cx-entrada {{ position: relative; border-radius: 18px; padding: 34px 36px 30px 36px; margin: 4vh 0 20px 0; overflow: hidden;
-  background: linear-gradient(135deg, #003F7D 0%, var(--cx-azul) 58%, #1F7AC7 100%); color: #fff;
-  box-shadow: 0 12px 32px rgba(0,63,125,.25); }}
-.cx-entrada::after {{ content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--cx-laranja); }}
-.cx-entrada .topo {{ display: flex; align-items: center; gap: 18px; }}
+.cx-entrada {{ position: relative; border-radius: var(--r4); padding: var(--e6); overflow: hidden;
+  margin: clamp(13px, calc((100vh - {ALTURA_ENTRADA}px) * 0.382), 144px) 0 var(--e5) 0;
+  background: linear-gradient(135deg, #003F7D 0%, var(--cx-azul) 61.8%, #1F7AC7 100%); color: #fff;
+  box-shadow: 0 13px 34px rgba(0,63,125,.25); animation: cxSobe .7s cubic-bezier(.2,.7,.2,1) both; }}
+.cx-entrada::after {{ content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--e2); background: var(--cx-laranja); }}
+.cx-entrada .topo {{ display: flex; align-items: flex-start; gap: var(--e5); }}
 .cx-entrada .cx-x {{ background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.25); box-shadow: none;
-  padding: 14px 16px; border-radius: 16px; }}
-.cx-entrada .sobre {{ font-size: .74rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; }}
-.cx-entrada h1 {{ color: #fff; font-size: 1.75rem; margin: 2px 0 0 0; padding: 0; font-weight: 750; line-height: 1.2; }}
-.cx-entrada p {{ margin: 18px 0 0 0; font-size: .95rem; line-height: 1.5; opacity: .92; max-width: 560px; }}
-.cx-entrada .pilares {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }}
-.cx-entrada .pilares span {{ font-size: .76rem; font-weight: 600; padding: 4px 11px; border-radius: 999px;
-  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); }}
-.cx-rodape-entrada {{ text-align: center; color: var(--cx-suave); font-size: .76rem; margin-top: 10px; }}
-[data-testid="stForm"] {{ background: #fff; border: 1px solid var(--cx-borda); border-radius: 14px; box-shadow: var(--cx-sombra);
-  padding: 18px 20px; }}
+  animation: cxPulso 3.2s ease-in-out infinite; }}
+.cx-entrada .cx-titulos {{ height: var(--cx-selo); display: flex; flex-direction: column; justify-content: space-between; min-width: 0; }}
+.cx-entrada .sobre {{ font-size: var(--t-1); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; opacity: .85; line-height: 1.25; }}
+.cx-entrada .cx-nome {{ color: #fff; font-size: var(--t4); margin: 0; padding: 0; font-weight: 800; line-height: 1; letter-spacing: -.01em; }}
+.cx-entrada .cx-nome span {{ display: inline-block; animation: cxSobe .8s cubic-bezier(.2,.7,.2,1) both; }}
+.cx-entrada .cx-nome span:nth-child(1) {{ animation-delay: .15s; }}
+.cx-entrada .cx-nome .gov {{ animation: cxSobe .8s cubic-bezier(.2,.7,.2,1) .35s both, cxBrilho 4.5s linear 1.2s infinite;
+  background: linear-gradient(100deg, #FFC46B 0%, var(--cx-laranja) 35%, #FFE2B0 50%, var(--cx-laranja) 65%, #FFC46B 100%);
+  background-size: 220% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }}
+.cx-entrada .cx-fio {{ position: relative; height: var(--e1); width: 61.8%; border-radius: var(--e1); margin: var(--e5) 0 0 0;
+  background: rgba(255,255,255,.22); overflow: hidden; transform-origin: left; animation: cxFio .9s ease-out .55s both; }}
+.cx-entrada .cx-fio i {{ position: absolute; top: 0; left: -38.2%; width: 38.2%; height: 100%; border-radius: var(--e1);
+  background: linear-gradient(90deg, rgba(243,146,0,0), var(--cx-laranja), rgba(255,255,255,.9));
+  animation: cxPercorre 2.6s ease-in-out 1.4s infinite; }}
+.cx-entrada .cx-sub {{ font-size: var(--t0); font-weight: 600; opacity: .92; line-height: 1.25; animation: cxSobe .8s ease-out .6s both; }}
+.cx-entrada .cx-luz {{ position: absolute; inset: -40% -20%; pointer-events: none; width: 55%;
+  background: radial-gradient(closest-side, rgba(255,255,255,.16), rgba(255,255,255,0) 70%); animation: cxLuz 9s ease-in-out infinite; }}
+.cx-entrada .topo, .cx-entrada p, .cx-entrada .pilares {{ position: relative; }}
+.cx-entrada p {{ margin: var(--e5) 0 0 0; font-size: var(--t0); line-height: 1.5; opacity: .92; max-width: 560px; }}
+.cx-entrada .pilares {{ display: flex; flex-wrap: wrap; gap: var(--e3); margin-top: var(--e5); }}
+.cx-entrada .pilares span {{ font-size: var(--t-1); font-weight: 600; padding: var(--e1) var(--e4); border-radius: 999px;
+  background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); animation: cxSobe .6s ease-out both; }}
+.cx-entrada .pilares span:nth-child(1) {{ animation-delay: .75s; }} .cx-entrada .pilares span:nth-child(2) {{ animation-delay: .85s; }}
+.cx-entrada .pilares span:nth-child(3) {{ animation-delay: .95s; }} .cx-entrada .pilares span:nth-child(4) {{ animation-delay: 1.05s; }}
+.cx-entrada .pilares span:nth-child(5) {{ animation-delay: 1.15s; }}
+@keyframes cxSobe {{ from {{ opacity: 0; transform: translateY(8px); }} to {{ opacity: 1; transform: none; }} }}
+@keyframes cxBrilho {{ from {{ background-position: 120% 0; }} to {{ background-position: -100% 0; }} }}
+@keyframes cxFio {{ from {{ transform: scaleX(0); }} to {{ transform: scaleX(1); }} }}
+@keyframes cxPercorre {{ 0% {{ left: -38.2%; }} 61.8%, 100% {{ left: 100%; }} }}
+@keyframes cxLuz {{ 0%, 100% {{ transform: translateX(-10%); }} 50% {{ transform: translateX(150%); }} }}
+@keyframes cxPulso {{ 0%, 100% {{ box-shadow: 0 0 0 0 rgba(255,255,255,0); }} 50% {{ box-shadow: 0 0 0 5px rgba(255,255,255,.10); }} }}
+@media (max-width: 640px) {{
+  .cx-entrada {{ padding: var(--e5); }} .cx-entrada .cx-nome {{ font-size: var(--t3); }}
+  .cx-entrada .topo {{ gap: var(--e4); }} .cx-cabecalho {{ padding: var(--e4) var(--e5); }}
+  /* ESTET-04 no celular: X de 34 px (como no cabeçalho), selo φ × 34 = 55 px; o texto cresce para baixo */
+  .cx-entrada .cx-x {{ padding: calc(var(--e6) * 0.309) !important; border-radius: var(--r2) !important; }}
+  .cx-entrada .cx-x img {{ height: var(--e6) !important; width: auto !important; }}
+  .cx-entrada .cx-titulos {{ height: auto; min-height: var(--e7); gap: var(--e2); }} }}
+@media (prefers-reduced-motion: reduce) {{ .cx-entrada, .cx-entrada *, .cx-cabecalho * {{ animation: none !important; }} }}
+.cx-rodape-entrada {{ text-align: center; color: var(--cx-suave); font-size: var(--t-1); margin-top: var(--e4); }}
+[data-testid="stForm"] {{ background: #fff; border: 1px solid var(--cx-borda); border-radius: var(--r3); box-shadow: var(--cx-sombra);
+  padding: var(--e5); }}
 
 /* cartões de indicador */
-.cx-cartoes {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 4px 0 18px 0; }}
-.cx-cartao {{ position: relative; background: #fff; border: 1px solid var(--cx-borda); border-radius: 12px;
-  padding: 14px 16px 13px 16px; box-shadow: var(--cx-sombra); transition: box-shadow .15s ease, transform .15s ease; overflow: hidden; }}
-.cx-cartao::before {{ content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--cor); }}
-.cx-cartao:hover {{ box-shadow: 0 8px 20px rgba(16,24,40,.08); transform: translateY(-1px); }}
-.cx-cartao .r {{ font-size: .72rem; color: var(--cx-suave); text-transform: uppercase; letter-spacing: .06em; font-weight: 650; }}
-.cx-cartao .v {{ font-size: 1.62rem; font-weight: 750; color: var(--cx-marinho); margin-top: 6px; line-height: 1.15;
+.cx-cartoes {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(233px, 1fr)); gap: var(--e4); margin: var(--e2) 0 var(--e5) 0; }}
+.cx-cartao {{ position: relative; background: #fff; border: 1px solid var(--cx-borda); border-radius: var(--r3);
+  padding: var(--e4) var(--e5); box-shadow: var(--cx-sombra); transition: box-shadow .15s ease, transform .15s ease; overflow: hidden; }}
+.cx-cartao::before {{ content: ""; position: absolute; left: 0; right: 0; top: 0; height: var(--e1); background: var(--cor); }}
+.cx-cartao:hover {{ box-shadow: 0 8px 21px rgba(16,24,40,.08); transform: translateY(-1px); }}
+.cx-cartao .r {{ font-size: var(--t-1); color: var(--cx-suave); text-transform: uppercase; letter-spacing: .06em; font-weight: 650; }}
+.cx-cartao .v {{ font-size: var(--t2); font-weight: 750; color: var(--cx-marinho); margin-top: var(--e2); line-height: 1.15;
   font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }}
-.cx-cartao .s {{ font-size: .8rem; color: var(--cx-suave); margin-top: 4px; line-height: 1.35; }}
-.cx-cartao .d {{ display: inline-block; font-size: .74rem; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-top: 6px; }}
+.cx-cartao .s {{ font-size: var(--t-1); color: var(--cx-suave); margin-top: var(--e1); line-height: 1.35; }}
+.cx-cartao .d {{ display: inline-block; font-size: var(--t-1); font-weight: 700; padding: 1px var(--e3); border-radius: 999px; margin-top: var(--e2); }}
 .cx-cartao .d.sobe {{ background: #E7F6EE; color: #12733F; }} .cx-cartao .d.desce {{ background: #FDECEC; color: #A3222F; }}
 .cx-cartao .d.neutro {{ background: #F2F4F7; color: #475467; }}
-.cx-cartao .parado {{ display: block; margin-top: 7px; padding: 4px 8px; border-radius: 7px; font-size: .74rem; font-weight: 650;
-  background: #FFF4E5; color: #8A4B00; border: 1px solid #F7C98B; line-height: 1.35; }}
-.cx-cartao .est {{ display: inline-block; font-size: .64rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase;
-  color: #6941C6; background: #F4F0FF; border-radius: 4px; padding: 1px 5px; margin-left: 6px; vertical-align: middle; }}
+.cx-cartao .parado {{ display: block; margin-top: var(--e3); padding: var(--e1) var(--e3); border-radius: var(--r1); font-size: var(--t-1);
+  font-weight: 650; background: #FFF4E5; color: #8A4B00; border: 1px solid #F7C98B; line-height: 1.35; }}
+.cx-cartao .est {{ display: inline-block; font-size: .618rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase;
+  color: #6941C6; background: #F4F0FF; border-radius: 3px; padding: 1px var(--e2); margin-left: var(--e2); vertical-align: middle; }}
 
 /* títulos de seção */
-.cx-secao {{ margin: 26px 0 10px 0; }}
-.cx-secao h3 {{ font-size: 1.08rem; margin: 0; color: var(--cx-texto); font-weight: 700; display: flex; align-items: center; gap: 10px; padding: 0; }}
-.cx-secao h3::before {{ content: ""; width: 4px; height: 18px; border-radius: 2px; background: var(--cx-azul); display: inline-block; }}
-.cx-secao p {{ margin: 4px 0 0 14px; color: var(--cx-suave); font-size: .86rem; }}
+.cx-secao {{ margin: var(--e6) 0 var(--e4) 0; }}
+.cx-secao h3 {{ font-size: var(--t1); margin: 0; color: var(--cx-texto); font-weight: 700; display: flex; align-items: center;
+  gap: var(--e4); padding: 0; }}
+.cx-secao h3::before {{ content: ""; width: var(--e2); height: var(--e5); border-radius: 2px; background: var(--cx-azul); display: inline-block; }}
+.cx-secao p {{ margin: var(--e2) 0 0 calc(var(--e2) + var(--e4)); color: var(--cx-suave); font-size: var(--t-1); }}
 
 /* leitura automática (achados) */
-.cx-leitura {{ background: linear-gradient(180deg, #F2F7FD 0%, #FFFFFF 100%); border: 1px solid #D6E4F5; border-radius: 12px;
-  padding: 14px 18px; margin: 8px 0 16px 0; box-shadow: var(--cx-sombra); }}
-.cx-leitura > b {{ display: block; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--cx-azul); }}
-.cx-leitura ul {{ margin: 6px 0 0 18px; padding: 0; }} .cx-leitura li {{ margin: 4px 0; font-size: .92rem; color: #344054; line-height: 1.45; }}
+.cx-leitura {{ background: linear-gradient(180deg, #F2F7FD 0%, #FFFFFF 100%); border: 1px solid #D6E4F5; border-radius: var(--r3);
+  padding: var(--e4) var(--e5); margin: var(--e3) 0 var(--e5) 0; box-shadow: var(--cx-sombra); }}
+.cx-leitura > b {{ display: block; font-size: var(--t-1); letter-spacing: .08em; text-transform: uppercase; color: var(--cx-azul); }}
+.cx-leitura ul {{ margin: var(--e2) 0 0 var(--e5); padding: 0; }}
+.cx-leitura li {{ margin: var(--e1) 0; font-size: var(--t0); color: #344054; line-height: 1.45; }}
 .cx-leitura li b {{ color: var(--cx-marinho); }}
 
-.cx-chip {{ display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: .76rem; margin: 0 6px 6px 0;
+.cx-chip {{ display: inline-block; padding: 2px var(--e3); border-radius: 999px; font-size: var(--t-1); margin: 0 var(--e2) var(--e2) 0;
   background: var(--cor); color: #fff; font-weight: 600; }}
-.cx-alerta {{ background: #FFF8EB; border: 1px solid #F7D08A; border-left: 5px solid var(--cx-laranja); border-radius: 12px;
-  padding: 11px 16px; margin: 0 0 16px 0; font-size: .9rem; color: #5B3B00; }}
-.cx-selo {{ display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: .75rem; font-weight: 700; }}
+.cx-alerta {{ background: #FFF8EB; border: 1px solid #F7D08A; border-left: var(--e2) solid var(--cx-laranja); border-radius: var(--r3);
+  padding: var(--e4) var(--e5); margin: 0 0 var(--e5) 0; font-size: var(--t0); color: #5B3B00; }}
+.cx-selo {{ display: inline-block; padding: 2px var(--e3); border-radius: var(--r1); font-size: var(--t-1); font-weight: 700; }}
 
 /* abas, tabelas, gráficos e mapa em "cartões" */
-div[data-testid="stTabs"] button p {{ font-weight: 600; font-size: .92rem; }}
-div[data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap: 6px; border-bottom: 1px solid var(--cx-borda); }}
-[data-testid="stDataFrame"], .ag-root-wrapper {{ border-radius: 12px !important; overflow: hidden; box-shadow: var(--cx-sombra); }}
-[data-testid="stPlotlyChart"], .echarts-container {{ background: #fff; border: 1px solid var(--cx-borda); border-radius: 12px;
+div[data-testid="stTabs"] button p {{ font-weight: 600; font-size: var(--t0); }}
+div[data-testid="stTabs"] [data-baseweb="tab-list"] {{ gap: var(--e2); border-bottom: 1px solid var(--cx-borda); }}
+[data-testid="stDataFrame"], .ag-root-wrapper {{ border-radius: var(--r3) !important; overflow: hidden; box-shadow: var(--cx-sombra); }}
+[data-testid="stPlotlyChart"], .echarts-container {{ background: #fff; border: 1px solid var(--cx-borda); border-radius: var(--r3);
   box-shadow: var(--cx-sombra); }}
-[data-testid="stVerticalBlockBorderWrapper"] {{ background: #fff; border-radius: 12px; }}
-[data-testid="stDeckGlJsonChart"] {{ border: 1px solid var(--cx-borda); border-radius: 12px; overflow: hidden; background: #EEF2F7;
+[data-testid="stVerticalBlockBorderWrapper"] {{ background: #fff; border-radius: var(--r3); }}
+[data-testid="stDeckGlJsonChart"] {{ border: 1px solid var(--cx-borda); border-radius: var(--r3); overflow: hidden; background: #EEF2F7;
   box-shadow: var(--cx-sombra); }}
 
-/* barra lateral */
-[data-testid="stSidebarNav"] span {{ font-size: .9rem; }}
-[data-testid="stSidebarNavSeparator"] {{ margin: 8px 0; }}
+/* barra lateral: o selo da CAIXA com a altura do cabeçalho (34 px) e respiro de 21 px */
+[data-testid="stLogo"] {{ height: 34px; max-height: 34px; }}
+[data-testid="stSidebarHeader"] {{ padding-top: var(--e5); padding-bottom: var(--e4); }}
+[data-testid="stSidebarNav"] span {{ font-size: var(--t0); }}
+[data-testid="stSidebarNavSeparator"] {{ margin: var(--e3) 0; }}
 [data-testid="stSidebar"] [data-testid="stSidebarNavItems"] header, [data-testid="stSidebar"] .st-emotion-cache-nav-header {{
-  text-transform: uppercase; letter-spacing: .08em; font-size: .7rem; opacity: .75; }}
+  text-transform: uppercase; letter-spacing: .08em; font-size: var(--t-1); opacity: .75; }}
 
 /* legenda do mapa */
-.cx-leg {{ display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: .78rem; color: #344054; padding: 10px 4px 4px 4px; }}
+.cx-leg {{ display: flex; flex-wrap: wrap; gap: var(--e2) var(--e4); align-items: center; font-size: var(--t-1); color: #344054;
+  padding: var(--e3) var(--e2) var(--e2) var(--e2); }}
 .cx-leg-t {{ font-weight: 700; color: var(--cx-texto); margin-right: 2px; }}
-.cx-leg-i {{ display: inline-flex; align-items: center; gap: 6px; }}
-.cx-leg-i i {{ width: 14px; height: 14px; border-radius: 3px; display: inline-block; border: 1px solid rgba(16,24,40,.10); }}
+.cx-leg-i {{ display: inline-flex; align-items: center; gap: var(--e2); }}
+.cx-leg-i i {{ width: 13px; height: 13px; border-radius: 3px; display: inline-block; border: 1px solid rgba(16,24,40,.10); }}
 .cx-leg-i i.o {{ border-radius: 50%; }}
-.cx-leg-sep {{ width: 1px; height: 16px; background: #D0D5DD; }}
-.cx-leg-dica {{ margin-left: auto; color: #98A2B3; font-size: .72rem; }}
-.cx-filtros {{ font-size: .85rem; color: #344054; padding: 6px 0; }}
-.cx-tab-info {{ font-size: .8rem; color: #667085; margin: 2px 0 6px; }}
+.cx-leg-sep {{ width: 1px; height: 13px; background: #D0D5DD; }}
+.cx-leg-dica {{ margin-left: auto; color: #98A2B3; font-size: var(--t-1); }}
+.cx-filtros {{ font-size: var(--t-1); color: #344054; padding: var(--e2) 0; }}
+.cx-tab-info {{ font-size: var(--t-1); color: #667085; margin: 2px 0 var(--e2); }}
 </style>
 """
 
@@ -180,12 +254,16 @@ def _login() -> dict | None:
         st.error("Nenhum usuário cadastrado. Rode novo_usuario.bat (perfil administrador) e recarregue.")
         st.stop()
     st.markdown(CSS, unsafe_allow_html=True)
-    _, meio, _ = st.columns([1, 1.6, 1])
+    _, meio, _ = st.columns([1, PHI, 1])                       # ESTET-01: coluna central = φ × laterais
     with meio:
-        x = selo_caixa(54)
+        x = selo_caixa(LOGO_ENTRADA)
+        selo = medidas_selo(LOGO_ENTRADA)["selo_altura"]
         st.markdown(
-            f'<div class="cx-entrada"><div class="topo">{x}<div><div class="sobre">CAIXA · Painel de Custódia</div>'
-            '<h1>Transferências federais</h1></div></div>'
+            f'<div class="cx-entrada"><div class="cx-luz"></div><div class="topo">{x}'
+            f'<div class="cx-titulos" style="--cx-selo:{selo}px">'
+            '<div class="sobre">CAIXA · Painel de Custódia</div>'
+            '<h1 class="cx-nome"><span>Conexão</span> <span class="gov">Governo</span></h1>'
+            '<div class="cx-sub">Transferências federais</div></div></div><div class="cx-fio"><i></i></div>'
             '<p>Quanto do dinheiro transferido pela União a estados, municípios e entidades fica na CAIXA, '
             'para onde ele vai e onde estão as oportunidades.</p>'
             '<div class="pilares"><span>Especiais</span><span>Fundo a Fundo</span><span>Discricionárias</span>'
@@ -220,7 +298,7 @@ def _logo_uri(nome: str) -> str | None:
     return None
 
 
-def marca(nome: str, altura: int = 22, texto: bool = True) -> str:
+def marca(nome: str, altura: int = LOGO_TABELA, texto: bool = True) -> str:
     """HTML com a logo da instituição (se o arquivo estiver em assets/logos) ou um selo com nome e cor."""
     uri = _logo_uri(nome)
     rot = {"GOV": "gov.br"}.get(nome, nome)
@@ -231,11 +309,41 @@ def marca(nome: str, altura: int = 22, texto: bool = True) -> str:
     return f'<span class="cx-chip" style="--cor:{cor_banco(rot)}">{html.escape(rot)}</span>'
 
 
-def selo_caixa(altura: int = 30) -> str:
-    """O X da CAIXA: o arquivo da marca (assets/logos/caixa_branco.png) sobre o azul institucional. Não redesenha
-    a marca; sem o arquivo, não mostra nada."""
+@lru_cache(maxsize=16)
+def tamanho_logo(nome: str) -> tuple[int, int] | None:
+    """Largura e altura do arquivo PNG da marca (lidas do cabeçalho do arquivo, sem dependências)."""
+    arq = LOGOS / f"{ARQ_LOGO.get(nome, nome)}.png"
+    if not arq.exists():
+        return None
+    cab = arq.read_bytes()[:24]
+    if cab[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    return int.from_bytes(cab[16:20], "big"), int.from_bytes(cab[20:24], "big")
+
+
+def medidas_selo(altura: int) -> dict:
+    """ESTET-04: medidas do selo da CAIXA para um X de `altura` px. O X nunca passa do tamanho do arquivo (fica
+    nítido); o selo mede φ × a altura do X, com a mesma folga (0,309 × altura) nos quatro lados, e o canto é a
+    altura do selo ÷ φ⁴."""
+    w0, h0 = tamanho_logo("CAIXA") or (78, 54)
+    h = min(altura, h0)
+    w = round(h * w0 / h0)
+    folga = h * (PHI - 1) / 2
+    selo_h = h + 2 * folga
+    return {"x_altura": h, "x_largura": w, "folga": round(folga, 1), "selo_altura": round(selo_h, 1),
+            "selo_largura": round(w + 2 * folga, 1), "canto": round(selo_h / PHI ** 4)}
+
+
+def selo_caixa(altura: int = LOGO_CABECALHO) -> str:
+    """O X da CAIXA: o arquivo da marca (assets/logos/caixa_branco.png) sobre o azul institucional, nas medidas da
+    regra ESTET-04. Não redesenha a marca; sem o arquivo, não mostra nada."""
     uri = _logo_uri("CAIXA")
-    return (f'<span class="cx-x"><img src="{uri}" alt="CAIXA" style="height:{altura}px"></span>' if uri else "")
+    if not uri:
+        return ""
+    m = medidas_selo(altura)
+    return (f'<span class="cx-x" style="padding:{m["folga"]}px;border-radius:{m["canto"]}px">'
+            f'<img src="{uri}" alt="CAIXA" width="{m["x_largura"]}" height="{m["x_altura"]}" '
+            f'style="height:{m["x_altura"]}px;width:{m["x_largura"]}px"></span>')
 
 
 def aviso_fonte(d: dict, modulos: list[str] | None = None) -> None:
@@ -322,7 +430,7 @@ def pagina(titulo: str, legenda: str | None = None, filtros: bool = True) -> Con
             st.caption(legenda)
         return _EMBUTIDA[-1]
     try:  # com o menu (app.py) a configuração já foi feita; sozinha, a tela configura
-        st.set_page_config(page_title=f"{titulo} · Custódia", page_icon="🏦", layout="wide")
+        st.set_page_config(page_title=f"{titulo} · {NOME}", page_icon="🏦", layout="wide")
     except Exception:
         pass
     usuario = _login()
@@ -397,13 +505,14 @@ def filtros_ativos(modulos, anos, ufs, extra) -> None:
 
 # ------------------------------------------------------------------ blocos de texto
 def cabecalho(titulo: str, legenda: str | None = None, data: str | None = None) -> None:
-    logo = selo_caixa(30)
+    logo = selo_caixa(LOGO_CABECALHO)
+    selo = medidas_selo(LOGO_CABECALHO)["selo_altura"]
     direita = (f'<div class="cx-data">Fonte: <b>Transferegov.br</b>'
                f'{f"<br>{html.escape(data)}" if data else ""}</div>')
     st.markdown(
-        f'<div class="cx-cabecalho"><div style="display:flex;gap:16px;align-items:center">'
-        f'{logo}<div><div class="cx-sobre">CAIXA · Painel de Custódia</div>'
-        f'<h1>{html.escape(titulo)}</h1>'
+        f'<div class="cx-cabecalho"><div class="cx-marca">'
+        f'{logo}<div><div class="cx-titulos" style="--cx-selo:{selo}px"><div class="cx-sobre">CAIXA · <b>{NOME}</b></div>'
+        f'<h1>{html.escape(titulo)}</h1></div>'
         f'{f"<p>{html.escape(legenda)}</p>" if legenda else ""}</div></div>{direita}</div>',
         unsafe_allow_html=True)
 
@@ -617,7 +726,7 @@ def resumo_detalhe(df: pd.DataFrame, grupo: str, chave: str, valor: str = "valor
     rot = (lambda v: f"{r.set_index(grupo).at[v, nomes]} · {consultas.brl(r.set_index(grupo).at[v, valor])}") \
         if nomes and nomes in r and valor in r else \
         (lambda v: f"{v} · {consultas.brl(r.set_index(grupo).at[v, valor])}" if valor in r else str(v))
-    c1, c2 = st.columns([2, 3])
+    c1, c2 = st.columns(AUREA_INV)
     with c1:
         tabela(r, chave=f"{chave}_r")
     with c2:
@@ -697,7 +806,8 @@ def _fmt(v, formato):
 
 
 def _mostrar(fig, chave=None, **kw):
-    cfg = {"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"], "locale": "pt-BR"}
+    cfg = {"displaylogo": False, "modeBarButtonsToRemove": ["lasso2d", "select2d"], "locale": "pt-BR",
+           "scrollZoom": False}            # a roda do mouse rola a página, não aproxima o gráfico
     return st.plotly_chart(fig, use_container_width=True, config=cfg, key=chave, **kw)
 
 
@@ -751,8 +861,18 @@ def agregar_bolhas(b: pd.DataFrame, cor: str | None, tam: str = "valor") -> pd.D
     rot = (b["municipio"].fillna(b["nome_ente"]) if "municipio" in b else b["nome_ente"]).astype(str) + " · " + b["uf"].astype(str)
     b["_rot"] = rot
     cat = (b.sort_values("_v").groupby("_k")[cor].last() if cor and cor in b else None)
+    from .mapa import resumir
+    nome_ente = b["nome_ente"] if "nome_ente" in b else pd.Series("", index=b.index)
+    b["_nome"] = nome_ente.map(lambda n: resumir(n, 40))
+    top = (b.sort_values("_v", ascending=False).drop_duplicates(["_k", "cnpj_ente"])
+           .groupby("_k")["_nome"].agg(lambda s: [n for n in s if n][:3]))
     g = b.groupby("_k").agg(lat=("lat", "first"), lon=("lon", "first"), valor=("_v", "sum"), cx=("_cx", "sum"),
                             entes=("cnpj_ente", "nunique"), rotulo=("_rot", "first")).reset_index()
+    g["entes_nomes"] = g["_k"].map(top)
+    um = g["entes"] == 1                                   # ponto de um ente só: o rótulo é o nome do ente
+    g["rotulo_curto"] = g["rotulo"].str.rsplit(" · ", n=1).str[0]
+    g.loc[um, "rotulo_curto"] = g.loc[um, "entes_nomes"].map(lambda x: x[0] if x else None) \
+        .fillna(g.loc[um, "rotulo_curto"])
     g["part_caixa"] = g["cx"] / g["valor"].replace(0, float("nan"))
     g["cod_ibge"] = g["_k"]
     g["_cor"] = g["_k"].map(cat) if cat is not None else "Entes"
@@ -772,6 +892,22 @@ def _rotulo_coluna(c: str) -> str:
     return ROTULOS.get(c, (c,))[0].replace(" (R$)", "")
 
 
+@lru_cache(maxsize=2)
+def _nomes_municipios_de(pasta: str) -> dict:
+    from . import referencias
+    m = referencias.municipios(Path(pasta))
+    return dict(zip(m["cod_ibge"].astype(str), m["municipio"])) if not m.empty else {}
+
+
+def _nomes_municipios() -> dict:
+    """Código IBGE → nome do município (referência do IBGE), para o mapa nunca mostrar só o código."""
+    try:
+        from . import config
+        return _nomes_municipios_de(str(config.caminhos().referencias))
+    except Exception:
+        return {}
+
+
 def _mapa_deck(df, geojson, coluna, formato, escala, chave, altura, bolhas, cor_bolha, tam_bolha, titulo):
     """Mapa deck.gl: enquadra a área, faixas de cor com legenda, dica ao passar o mouse e clique para detalhar."""
     import inspect
@@ -783,7 +919,8 @@ def _mapa_deck(df, geojson, coluna, formato, escala, chave, altura, bolhas, cor_
         fundo = (config.carregar().get("painel") or {}).get("mapa_fundo") or None
     except Exception:
         fundo = None
-    deck, leg = mapa.montar(df, geojson, coluna, formato, escala, b, cores_b, titulo, altura=altura, fundo=fundo)
+    deck, leg = mapa.montar(df, geojson, coluna, formato, escala, b, cores_b, titulo, altura=altura, fundo=fundo,
+                            nomes=_nomes_municipios())
     params = inspect.signature(st.pydeck_chart).parameters
     kw = {"key": chave}
     if "on_select" in params:

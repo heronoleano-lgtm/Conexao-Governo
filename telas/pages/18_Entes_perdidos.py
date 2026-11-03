@@ -12,6 +12,7 @@ from custodia import graficos as g  # noqa: E402
 
 from custodia.semantica import cor_banco  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, mapa_coropletico, pagina, secao  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Entes perdidos",
              "Entes que já escolheram a CAIXA e, no último ano com instrumentos, não colocaram nada na CAIXA "
@@ -33,7 +34,7 @@ cartoes([
     {"rotulo": "Perdidos há até 2 anos", "valor": f"{len(rec):,}".replace(",", "."), "sub": "relação ainda recente",
      "cor": "#005CA9"},
 ])
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     secao("Onde estão", "Bolhas = entes perdidos (tamanho = valor no concorrente; cor = banco atual).")
     er = d["mart_ente_resumo"]

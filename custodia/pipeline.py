@@ -180,6 +180,9 @@ def transformar(cfg: dict, cam: config.Caminhos, dia: date, manifestos: list[dic
     # só o CONTRATADO entra nos valores; o previsto (propostas, planos em elaboração) vale para a escolha de banco
     # e para o dinheiro previsto; cancelado/anulado/impedido fica fora e registrado (red team 02/11)
     todos = f["fato_instrumento"].assign(etapa_instrumento=lambda x: marts.etapa_instrumento(x))
+    if "orgao" in todos:      # um nome por órgão em todas as modalidades (revisão de 03/11)
+        from .analise_fluxo import nome_orgao
+        todos["orgao"] = nome_orgao(todos["orgao"])
     f["fato_instrumento"] = todos[todos["etapa_instrumento"] == marts.CONTRATADO].reset_index(drop=True)
     instr_escolha = todos[todos["etapa_instrumento"] != marts.CANCELADO].reset_index(drop=True)
     f["fato_instrumento_fora"] = todos[todos["etapa_instrumento"] != marts.CONTRATADO].reset_index(drop=True)
@@ -387,7 +390,7 @@ def _limpar_marts(pasta: Path, manter: int) -> None:
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(description="Carga diária do Painel de Custódia")
+    ap = argparse.ArgumentParser(description="Carga diária do Conexão Governo (painel de custódia)")
     ap.add_argument("--so-transformar", action="store_true")
     ap.add_argument("--sem-csv", action="store_true")
     ap.add_argument("--dia", help="AAAA-MM-DD (padrão: hoje)")

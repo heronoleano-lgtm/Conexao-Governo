@@ -9,6 +9,7 @@ import streamlit as st  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia.ui import (baixar, cartoes, dispersao, leitura, mapa_coropletico, pagina, ranking, secao,  # noqa: E402
                          tabela)
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Parlamentares",
              "Para onde vão as emendas de cada autor e em que banco caem. Quem escolhe o banco é o ente; "
@@ -35,7 +36,7 @@ cartoes([
 
 secao("Quadrante de prioridade", "Cada bolha é um parlamentar: à direita, mais valor; embaixo, menos CAIXA. "
                                  "O canto inferior direito concentra a agenda institucional prioritária.")
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     dispersao(p, "valor", "part_caixa", "entes", "parlamentar")
 with c2:
@@ -57,7 +58,7 @@ if nome:
     linha = p.set_index("parlamentar").loc[nome]
     leitura(nome, [linha["leitura"], f"{int(linha['entes'])} entes; {q.pct(linha['part_caixa'])} do valor na CAIXA."])
     er = d.get("mart_ente_resumo", pd.DataFrame())
-    c1, c2 = st.columns([3, 2])
+    c1, c2 = st.columns(AUREA)
     with c1:
         if not er.empty:
             b = r.groupby("cnpj_ente", as_index=False).agg(valor=("valor", "sum"), grupo_banco=("grupo_banco", "first"))

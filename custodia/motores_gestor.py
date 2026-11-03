@@ -16,6 +16,7 @@ SAIDAS = {"pagamento/transferência", "tributos/tarifas", "devolução"}
 MEDIDO = "medido"
 MEDIDO_LANC = "medido: lançamentos de 12 meses"
 MEDIDO_PARADO = "medido: sem saída em 12 meses (parado)"
+NAO_MEDIDO_PARCIAL = "prazo padrão (a fonte só traz parte das saídas desta modalidade)"
 
 
 def giro_dias(x: pd.DataFrame) -> float:
@@ -117,14 +118,19 @@ def permanencia(contas: pd.DataFrame, fluxo: pd.DataFrame, mc: dict | None = Non
     padrao = float(_p("PERM-01", "dias_padrao", (mc or {}).get("dias_permanencia_padrao", 180)))
     maximo = float(_p("PERM-01", "dias_maximo", 1095))
     completos = set(_p("PERM-01", "modulos_extrato_completo", ["Especiais"]))
-    tem = g["saidas_12m"] > 0
+    # só mede onde o extrato traz TODAS as saídas (Especiais). No Fundo a Fundo a fonte só traz as transferências
+    # para CNPJ e os pagamentos em lote não se ligam à conta (subtransações sem lançamento-pai): medir com saídas
+    # parciais inflava a permanência (BB FaF: 845 dias sobre R$ 0,71 bi; revisão de 03/11)
+    parcial = (g["saidas_12m"] > 0) & ~g["modulo"].isin(completos)
+    tem = (g["saidas_12m"] > 0) & g["modulo"].isin(completos)
     # sem saída em 12 meses onde o extrato cobre todas as saídas (Especiais) = dinheiro parado, não "sem dado"
     # (conciliação 01/11: 8.930 contas BB com R$ 2,85 bi recebiam o prazo padrão de 180 dias)
     grupo_ok = pd.Series([(m, b) in fim_grupo for m, b in zip(g["modulo"], g["grupo_banco"])], index=g.index)
     parado = ~tem & g["modulo"].isin(completos) & grupo_ok
     g["dias_permanencia"] = np.select([tem, parado], [(g["saldo"] / (g["saidas_12m"] / 365.0)).clip(upper=maximo),
                                                       maximo], padrao)
-    g["base_permanencia"] = np.select([tem, parado], [MEDIDO_LANC, MEDIDO_PARADO], "prazo padrão (sem lançamentos)")
+    g["base_permanencia"] = np.select([tem, parado, parcial],
+                                      [MEDIDO_LANC, MEDIDO_PARADO, NAO_MEDIDO_PARCIAL], "prazo padrão (sem lançamentos)")
     if paradas:
         par = pd.Series([(m, b) in paradas for m, b in zip(g["modulo"], g["grupo_banco"])], index=g.index)
         for (m, b), d_fim in fim_grupo.items():

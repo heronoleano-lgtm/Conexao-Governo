@@ -8,6 +8,7 @@ import streamlit as st  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia.semantica import cor_banco  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, pagina, ranking, rosca, secao, tabela  # noqa: E402
+from custodia.ui import AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Fornecedores e pagamentos",
              "Quem recebe o dinheiro no fim e em que banco. Empresas que recebem muito e não têm conta na CAIXA são "
@@ -32,7 +33,7 @@ cartoes([
 
 if not com_banco.empty:
     secao("Em que banco os recebedores recebem")
-    c1, c2 = st.columns([2, 3])
+    c1, c2 = st.columns(AUREA_INV)
     with c1:
         por_banco = com_banco.groupby("banco_principal")["valor_recebido"].sum().sort_values(ascending=False)
         rosca(por_banco, "Valor recebido, por banco principal", {b: cor_banco(b) for b in por_banco.index}, altura=340)

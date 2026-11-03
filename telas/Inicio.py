@@ -13,6 +13,7 @@ from custodia.semantica import (BANCO_CORES, CAIXA_AZUL, CAIXA_LARANJA, MODALIDA
                                 nome_modalidade)
 from custodia.ui import (baixar, barras_modalidade, cartoes, filtros_ativos, leitura,  # noqa: E402
                          linha_participacao, pagina, ranking, rosca, sankey, secao, tabela)
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Cockpit executivo · Custódia de recursos federais",
              "Onde está o dinheiro das transferências federais, em que banco, por qual modalidade e onde a CAIXA "
@@ -88,7 +89,7 @@ cartoes([
 secao("Onde está o dinheiro", "Estados ordenados pela métrica escolhida. O mapa interativo, com municípios e entes, "
                               "fica em Mapa e território.")
 coluna, escala, formato = q.METRICAS[metrica]
-c_rank, c_lado = st.columns([3, 2])
+c_rank, c_lado = st.columns(AUREA)
 with c_rank:
     ranking(uf_df, coluna, formato, n=27, titulo=f"{metrica} por estado", filtro="uf", valores="uf",
             chave="ck_rank_uf")

@@ -453,3 +453,11 @@ def rotular(df: pd.DataFrame, manter_cnpj: bool = True, realce: bool = True) -> 
 
 def sem_rotulo(colunas) -> list[str]:
     return [c for c in colunas if str(c) not in ROTULOS and str(c) not in TECNICAS]
+
+# Janela de escolha: ciclo do aceite ao crédito (03/11)
+ROTULOS.update({
+    "meses_da_janela": ("Meses da janela", T, "Meses que somam 80% das escolhas de banco (aceites) do ano"),
+    "planos": ("Planos", I, "Planos de ação"),
+    "tende à CAIXA": ("Tende à CAIXA (R$)", R, ""), "tende ao concorrente": ("Tende ao concorrente (R$)", R, ""),
+    "indefinida": ("Tendência indefinida (R$)", R, ""),
+})

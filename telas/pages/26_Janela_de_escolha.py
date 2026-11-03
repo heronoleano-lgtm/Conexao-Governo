@@ -11,6 +11,7 @@ from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 from custodia.motores_gestor import ESTAGIOS, MESES  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, mapa_coropletico, pagina, secao  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 TEND_CORES = {"tende à CAIXA": "#005CA9", "indefinida": "#F39200", "tende ao concorrente": "#D1495B"}
 ctx = pagina("Janela de escolha do banco",
@@ -41,7 +42,7 @@ leitura("Leitura", [f"<b>{e}</b>: {q.brl(gp['valor'].sum())} em {len(gp):,} repa
                     .replace(",", ".") for e, gp in jn.groupby("estagio", sort=False)])
 
 secao("Matriz de escolha", "Estágio da janela × tendência do ente. Comece pela linha de cima e pela coluna vermelha.")
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     mt = jn.groupby(["estagio", "tendencia"], as_index=False)["valor"].sum()
     g.heatmap(mt, "tendencia", "estagio", "valor", chave="jan_matriz", formato="brl", altura=360,
@@ -66,7 +67,7 @@ mapa_coropletico(uf, q.malha("BR"), "valor", "brl", "Oranges", chave="jan_mapa",
 secao("Quando os entes escolhem o banco", "Ciência dos planos (Transferências Especiais) e assinatura dos convênios, por mês.")
 cal = q.filtrar(d.get("mart_calendario_escolha", pd.DataFrame()), ctx.modulos, None, None)
 if not cal.empty:
-    c1, c2 = st.columns([3, 2])
+    c1, c2 = st.columns(AUREA)
     pm = cal.groupby(["mes", "mes_nome"], as_index=False)[["valor", "valor_caixa"]].sum().sort_values("mes")
     pm["valor_concorrente"] = pm["valor"] - pm["valor_caixa"]
     with c1:
@@ -81,6 +82,57 @@ if not cal.empty:
                                "de entes antes desse mês.",
                                "Emendas do próximo ano (LOA) ainda não estão no Transferegov: quando os planos forem "
                                "criados, entram aqui como 'banco ainda não escolhido'."])
+
+secao("Do aceite ao crédito: quando escolher, quando o dinheiro cai e por quanto tempo fica",
+      "Transferências Especiais. A escolha do banco (aceite do plano) vem antes do crédito (ordem bancária): "
+      "a abordagem tem de acontecer antes dos meses de escolha, não dos meses de crédito.")
+ce = q.ciclo_escolha(d)
+if ce.get("meses") is not None:
+    c1, c2 = st.columns(AUREA)
+    with c1:
+        g.barras(ce["meses"], "mes_nome", {"escolha_pct": "Escolha do banco (aceite)", "credito_pct": "Crédito (ordem bancária)"},
+                 chave="jan_ciclo", formato="pct", empilhado=False, altura=320,
+                 cores={"Escolha do banco (aceite)": "#005CA9", "Crédito (ordem bancária)": "#F39200"})
+    with c2:
+        dc = ce.get("dias_ate_credito")
+        jan = ce.get("janelas", pd.DataFrame())
+        frases = []
+        if not jan.empty:
+            ult = jan.iloc[0]
+            frases.append(f"A janela muda a cada ano, conforme o cronograma do ciclo divulgado pelo MGI: em "
+                          f"<b>{int(ult['ano'])}</b> foi em <b>{ult['meses_da_janela']}</b>"
+                          + (f"; em {int(jan.iloc[1]['ano'])}, em {jan.iloc[1]['meses_da_janela']}." if len(jan) > 1 else "."))
+        if dc:
+            frases.append(f"Do aceite à primeira ordem bancária passam <b>{dc['mediana']:.0f} dias</b> na mediana "
+                          f"(metade dos planos entre {dc['p25']:.0f} e {dc['p75']:.0f} dias; {dc['n']:,} planos)."
+                          .replace(",", "."))
+        tr = ce.get("trocas", pd.DataFrame())
+        if not tr.empty:
+            t = tr.iloc[-1]
+            frases.append(f"Não há fidelidade: de {int(t['de'])} para {int(t['para'])}, <b>{q.pct(t['trocaram'] / t['entes'])}</b> "
+                          f"dos entes trocaram de banco ({int(t['para_caixa'])} vieram para a CAIXA, "
+                          f"{int(t['sairam_caixa'])} saíram).")
+        leitura("O que os dados mostram", frases)
+    if not jan.empty:
+        g.grade(jan, chave="jan_anos", altura=260)
+    cpa = ce.get("contas_por_ano", pd.DataFrame())
+    novo = cpa[cpa["planos_por_conta"] <= 1.01]["ano"].min() if not cpa.empty else None
+    leitura("Regras da escolha e da permanência (Portaria Conjunta MF/MGI nº 15/2025)", [
+        "<b>Quem escolhe e quando:</b> o gestor do ente indica o banco e a agência ao registrar a ciência e preencher o "
+        "plano de trabalho no Transferegov (art. 5º, § 1º, II), no prazo do ciclo de execução do cronograma da "
+        "Secretaria de Gestão e Inovação (art. 6º). Os empenhos saem por ciclo (art. 9º, § 1º).",
+        "<b>Uma conta por transferência:</b> a conta é aberta pela própria plataforma (art. 5º, § 2º), uma para cada "
+        "transferência (art. 5º, § 3º)" + (f" — nos dados, 1 plano por conta desde {int(novo)}; antes, até 2 planos "
+                                           "dividiam a mesma conta" if novo == novo and novo is not None else "") + ". "
+        "Por isso cada nova emenda é uma nova escolha de banco.",
+        "<b>Permanência:</b> não há prazo mínimo nem fidelidade ao banco anterior. O dinheiro já creditado não pode ir "
+        "para outra conta (art. 5º, § 3º) e fica aplicado enquanto não é usado (art. 20): permanece no banco escolhido "
+        "até ser gasto, dentro do prazo de execução da IN TCU nº 93/2024 (de 36 a 60 meses, conforme o valor, contados "
+        "de 1º de janeiro do ano seguinte ao recebimento, segundo a CNM).",
+        "<b>Fundo a Fundo:</b> a conta é gerada automaticamente pela plataforma no BB e o ente só indica a agência — "
+        "não há escolha de banco a disputar.",
+        "<b>Como usar:</b> prepare a carteira antes do mês de abertura do próximo ciclo; o crédito chega cerca de dois "
+        "meses depois do aceite, já no banco escolhido."])
 
 secao("Com quem falar", "Parlamentares com mais valor na janela e o histórico deles com a CAIXA.")
 pj = jn.dropna(subset=["parlamentar"]).groupby("parlamentar", as_index=False).agg(

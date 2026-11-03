@@ -12,6 +12,7 @@ from custodia import graficos as g  # noqa: E402
 from custodia.motores_gestor import ORDEM_FAIXAS  # noqa: E402
 from custodia.semantica import cor_banco, nome_modalidade  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, pagina, secao  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Dinheiro a receber",
              "O que ainda vai entrar nas contas. Firme: emendas empenhadas e não pagas (Transferências Especiais, "
@@ -52,7 +53,7 @@ if not ar.empty and "etapa" in ar:
                 .fillna(0).reset_index(), chave="rec_etapas", altura=240)
 
 secao("Calendário do dinheiro", "Por prazo previsto e banco da conta.")
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 fx = vivo.groupby(["faixa_prazo", "grupo_banco"], as_index=False)["valor_a_receber"].sum()
 piv = fx.pivot_table(index="faixa_prazo", columns="grupo_banco", values="valor_a_receber", aggfunc="sum").fillna(0)
 piv = piv.reindex([f for f in ORDEM_FAIXAS if f in piv.index]).reset_index()

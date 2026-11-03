@@ -10,6 +10,7 @@ from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 
 from custodia.ui import baixar, cartoes, leitura, pagina, sankey, secao  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Matriz de escolhas",
              "Qual banco cada ente escolhe em cada modalidade e ano, quão fiel ele é e para onde vão os que trocam "
@@ -39,7 +40,7 @@ cartoes([
 
 secao("Banco nas Transferências Especiais × banco nos convênios", "Entes nos últimos 3 anos, pelo banco predominante em cada modalidade.")
 mm = d["mart_matriz_modalidades"]
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     ordem = ["CAIXA", "BB", "BNB", "não usa"]
     g.heatmap(mm, "banco_convenios", "banco_especiais", "entes", chave="esc_matriz", formato="int", altura=380,

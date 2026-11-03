@@ -9,6 +9,7 @@ import streamlit as st  # noqa: E402
 from custodia import auditoria as au  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, pagina, secao, tabela  # noqa: E402
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Auditoria da carga",
              "Conferência diária da carga bruta antes de virar informação: completude, estrutura, chaves, domínios, "
@@ -27,7 +28,7 @@ cartoes([{"rotulo": "Veredito do dia", "valor": veredito, "sub": f"carga de {aud
         [{"rotulo": s.capitalize(), "valor": int(cont.get(s, 0)), "cor": cor[s]} for s in (au.CRITICO, au.ATENCAO, au.OK, au.NV)])
 leitura("Leitura da auditoria", au.interpretar(aud))
 
-c1, c2 = st.columns([3, 2])
+c1, c2 = st.columns(AUREA)
 with c1:
     secao("Por família de checagem")
     pf = aud.pivot_table(index="familia", columns="status", values="checagem", aggfunc="count").fillna(0).reset_index()

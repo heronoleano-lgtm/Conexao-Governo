@@ -8,7 +8,7 @@ import streamlit as st  # noqa: E402
 
 from custodia import config, dados, interacao, ui  # noqa: E402
 
-st.set_page_config(page_title="Painel de Custódia · Transferegov", page_icon="🏦", layout="wide",
+st.set_page_config(page_title="Conexão Governo · CAIXA", page_icon="🏦", layout="wide",
                    initial_sidebar_state="expanded")
 usuario = ui.exigir_login()
 logo = ui.LOGOS / "caixa_selo.png"          # o X da CAIXA sobre o azul (o branco some na barra lateral clara)

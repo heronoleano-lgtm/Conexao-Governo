@@ -51,7 +51,12 @@ cartoes([
      "ajuda": "Saldo ÷ saídas dos 12 meses × 365, só onde o extrato mede (inclui contas sem saída no ano). O resto "
               "usa o prazo padrão da regra PERM-01 e não entra na média"},
     {"rotulo": "Permanência média no concorrente (medida)", "valor": dias_txt(pond(conc)),
-     "sub": f"medida em {q.pct(cobertura(conc))} do saldo", "cor": "#F39200"},
+     "sub": f"medida em {q.pct(cobertura(conc))} do saldo · saídas reais dos 12 meses até o último extrato publicado",
+     "cor": "#F39200",
+     "ajuda": "Saldo ÷ saídas efetivas (pagamentos e transferências; aplicação financeira não é saída) dos 12 meses "
+              "até o último extrato do banco — no BB, extratos publicados até o mês passado. Só as Transferências "
+              "Especiais são medidas: no Fundo a Fundo a fonte traz só parte das saídas e os convênios não têm extrato, "
+              "então ficam fora da média (prazo padrão PERM-01)"},
     {"rotulo": "Saldo estável na CAIXA", "valor": q.pct(cx.loc[cx["classe_saldo"] == "Estável", "saldo"].sum() / max(cx["saldo"].sum(), 1)),
      "sub": "fica 1 ano ou mais"},
     {"rotulo": "Valor econômico no concorrente / ano", "estimado": True, "valor": q.brl(conc["valor_economico_ano"].sum()), "cor": "#F39200",

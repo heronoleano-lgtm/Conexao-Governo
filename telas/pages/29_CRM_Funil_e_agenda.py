@@ -12,6 +12,7 @@ from custodia import acesso  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia import graficos as g  # noqa: E402
 from custodia.ui import cartoes, leitura, pagina, secao, tabela  # noqa: E402
+from custodia.ui import AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("CRM · Funil e agenda",
              "Quem abordar primeiro (prioridade CRM-01), em que etapa está cada ente e o que vence na agenda da equipe.")
@@ -44,7 +45,7 @@ cartoes([
     {"rotulo": "Ações nos próximos 7 dias", "valor": int(len(prox7))},
 ])
 
-c1, c2 = st.columns([2, 3])
+c1, c2 = st.columns(AUREA_INV)
 with c1:
     secao("Funil", "Entes por etapa e potencial de custódia envolvido.")
     etapas = [s for s in acesso.STATUS_CARTEIRA if s != "perdido"]

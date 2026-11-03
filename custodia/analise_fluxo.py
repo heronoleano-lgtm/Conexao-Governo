@@ -31,12 +31,28 @@ def _f(d, nome, f, anos=True):
     return filtrada(d, nome, m, a if anos else None, u, e)
 
 
+def nome_orgao(s: pd.Series) -> pd.Series:
+    """Um nome por órgão, mesmo que as fontes escrevam diferente ("Ministério da Cultura" × "MINISTERIO DA CULTURA"):
+    agrupa sem acento e sem caixa e mostra a grafia com acentos e minúsculas quando ela existir."""
+    from .normaliza import sem_acento
+    s = s.astype("object").where(s.notna(), None)
+    chave = s.map(lambda v: sem_acento(str(v)).upper().strip() if v is not None else None)
+    def bonito(v):
+        return (sum(c.islower() for c in v), sum(not c.isascii() for c in v))
+    melhor = {}
+    for k, v in zip(chave, s):
+        if k is not None and (k not in melhor or bonito(str(v)) > bonito(melhor[k])):
+            melhor[k] = str(v)
+    return chave.map(melhor)
+
+
 # ------------------------------------------------------------------ etapa 1 · de onde vem
 @memo(16)
 def origem(d, filtros: tuple) -> dict:
     instr = _f(d, "fato_instrumento", filtros)
     if instr.empty:
         return {}
+    instr = instr.assign(orgao=nome_orgao(instr["orgao"]))
     com = instr[instr["grupo_banco"] != "(sem banco)"]
     tot = float(instr["valor"].sum())
     g = instr.groupby("orgao", dropna=False).agg(valor=("valor", "sum"), instrumentos=("id_instrumento", "count"),
@@ -46,6 +62,14 @@ def origem(d, filtros: tuple) -> dict:
     cx = com[com["grupo_banco"] == "CAIXA"].groupby("orgao")["valor"].sum()
     g["valor_caixa"] = cx.reindex(g.index).fillna(0)
     g["valor_concorrente"] = (cb.reindex(g.index).fillna(0) - g["valor_caixa"]).clip(lower=0)
+    # onde o ente ESCOLHE o banco (Especiais e convênios); no Fundo a Fundo a conta é gerada automaticamente
+    # pela plataforma no BB e o ente só indica a agência — não é disputa comercial
+    esc = com[com["modulo"] != "Fundo a Fundo"]
+    cbe = esc.groupby("orgao")["valor"].sum()
+    cxe = esc[esc["grupo_banco"] == "CAIXA"].groupby("orgao")["valor"].sum()
+    g["valor_concorrente_escolha"] = (cbe.reindex(g.index).fillna(0) - cxe.reindex(g.index).fillna(0)).clip(lower=0)
+    g["part_caixa_escolha"] = cxe.reindex(g.index).fillna(0) / cbe.reindex(g.index).replace(0, np.nan)
+    g["valor_faf"] = instr[instr["modulo"] == "Fundo a Fundo"].groupby("orgao")["valor"].sum().reindex(g.index).fillna(0)
     g["part_caixa"] = g["valor_caixa"] / cb.reindex(g.index).replace(0, np.nan)
     g["part_do_total"] = g["valor"] / tot if tot else np.nan
     g = g.sort_values("valor", ascending=False).reset_index()
@@ -69,11 +93,19 @@ def leitura_origem(o: dict, brl, pct) -> list[str]:
            f"({pct(t.iloc[0]['part_do_total'])} do total)."]
     out.append(f"Os 3 maiores órgãos concentram <b>{pct(o['top3'])}</b> do dinheiro"
                + (" — concentração alta: poucos órgãos decidem o volume." if o["top3"] >= 0.6 else "."))
-    conc = t[t["valor_concorrente"] > 0].sort_values("valor_concorrente", ascending=False).head(1)
+    col = "valor_concorrente_escolha" if "valor_concorrente_escolha" in t else "valor_concorrente"
+    conc = t[t[col] > 0].sort_values(col, ascending=False).head(1)
     if not conc.empty:
         r = conc.iloc[0]
-        out.append(f"O órgão que mais leva dinheiro para conta de concorrente é <b>{r['orgao']}</b>: "
-                   f"{brl(r['valor_concorrente'])} (CAIXA tem {pct(r['part_caixa'])} das contas com banco).")
+        pc = r.get("part_caixa_escolha", r["part_caixa"])
+        out.append(f"Onde o ente escolhe o banco (Especiais e convênios), o órgão com mais valor contratado em conta "
+                   f"de concorrente é <b>{r['orgao']}</b>: {brl(r[col])} (CAIXA tem {pct(pc)} desse valor). "
+                   "Soma de todos os anos do filtro.")
+    if "valor_faf" in t and t["valor_faf"].sum() > 0:
+        f = t.sort_values("valor_faf", ascending=False).iloc[0]
+        out.append(f"No Fundo a Fundo a conta é gerada automaticamente pela plataforma no BB (o ente só indica a "
+                   f"agência), então não é perda comercial: {brl(t['valor_faf'].sum())} contratados, "
+                   f"{pct(f['valor_faf'] / t['valor_faf'].sum())} de <b>{f['orgao']}</b>.")
     out.append(f"{pct(o['com_emenda'])} dos instrumentos vêm de emenda parlamentar.")
     return out
 

@@ -9,6 +9,7 @@ from custodia import config  # noqa: E402
 from custodia import consultas as q  # noqa: E402
 from custodia.semantica import SEGMENTO_CORES  # noqa: E402
 from custodia.ui import baixar, cartoes, leitura, pagina, ranking, rosca, secao, tabela  # noqa: E402
+from custodia.ui import AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Potencial e ações",
              "Quanto pode vir para a CAIXA em cada ente e o que fazer primeiro. Potencial = saldo hoje no concorrente "
@@ -38,7 +39,7 @@ seg = p.groupby("segmento", as_index=False).agg(entes=("cnpj_ente", "count"),
 ac = p.groupby("acao_recomendada", as_index=False).agg(entes=("cnpj_ente", "count"),
                                                        potencial_custodia=("potencial_custodia", "sum"))
 secao("Onde está o potencial")
-c1, c2 = st.columns([2, 3])
+c1, c2 = st.columns(AUREA_INV)
 with c1:
     rosca(seg.set_index("segmento")["potencial_custodia"], "Potencial por segmento", SEGMENTO_CORES, altura=340)
 with c2:

@@ -14,6 +14,7 @@ from custodia import motores_fluxo as mf  # noqa: E402
 from custodia.referencias import COD_UF, UF_COD  # noqa: E402
 from custodia.ui import (baixar, cartoes, leitura, linha_participacao, mapa_coropletico, pagina, ranking,  # noqa: E402
                          sankey, secao, tabela, treemap)
+from custodia.ui import AUREA  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Mapa e território",
              "Do Brasil ao ente: clique num estado (no mapa ou no ranking) para ver os municípios e num município para "
@@ -203,7 +204,7 @@ cards += [
 cartoes(cards)
 
 # ---------------------------------------------------------------- mapa + painel lateral
-esq, dir_ = st.columns([3, 2])
+esq, dir_ = st.columns(AUREA)
 with esq:
     geo = q.malha(uf if uf else "BR")
     bolhas, cor_b, tam_b = None, "segmento", "valor"

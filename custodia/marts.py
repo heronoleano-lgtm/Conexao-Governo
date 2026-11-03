@@ -359,7 +359,9 @@ def fundoafundo(bruto: Path) -> dict[str, pd.DataFrame]:
         "parlamentar": None,
         "objeto": _str(pa, "nome_programa"),
         "data_referencia": _str(pa, "data_inicio_vigencia_plano_acao"),
-        "orgao": sigla.fillna(_str(pa, "sigla_orgao_repassador_plano_acao")),
+        # nome do órgão por extenso (como nas Discricionárias), para o mesmo ministério não virar dois órgãos
+        # ("MinC" × "MINISTERIO DA CULTURA"; revisão de 03/11)
+        "orgao": _str(pa, "nome_orgao_superior_programa").fillna(sigla).fillna(_str(pa, "sigla_orgao_repassador_plano_acao")),
         "programa": _str(pa, "nome_programa"),
         "area": sigla.map(AREA_ORGAO_FAF),
     })

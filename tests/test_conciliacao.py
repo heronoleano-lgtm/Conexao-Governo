@@ -125,3 +125,15 @@ def test_fpm_sem_banco_publicado():
     from pathlib import Path
     src = Path(marts.__file__).with_name("marts_outras.py").read_text("utf-8")
     assert '"FPE"]), "BB"' not in src
+
+
+def test_permanencia_nao_mede_com_saidas_parciais():
+    """03/11: no Fundo a Fundo a fonte só traz parte das saídas; medir com elas inflava a permanência do concorrente."""
+    contas = pd.DataFrame({"modulo": ["Fundo a Fundo", "Especiais"], "cnpj_ente": ["a", "b"], "nome_ente": ["A", "B"],
+                           "uf": "MG", "grupo_banco": "BB", "id_agencia_conta": ["1-1", "2-2"], "saldo": [800.0, 365.0]})
+    fluxo = pd.DataFrame({"modulo": ["Fundo a Fundo", "Especiais"], "cnpj_ente": ["a", "b"], "grupo_origem": "BB",
+                          "tipo_movimento": "pagamento/transferência", "valor": [100.0, 365.0],
+                          "data": ["2026-10-01", "2026-10-30"]})
+    p = mg.permanencia(contas, fluxo, {}, set()).set_index("cnpj_ente")
+    assert p.at["a", "base_permanencia"] == mg.NAO_MEDIDO_PARCIAL and not p.at["a", "base_permanencia"].startswith(mg.MEDIDO)
+    assert p.at["b", "dias_permanencia"] == pytest.approx(365)

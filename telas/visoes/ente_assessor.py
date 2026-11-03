@@ -13,6 +13,7 @@ from custodia import graficos as g  # noqa: E402
 from custodia.motores_gestor import DIMENSOES  # noqa: E402
 from custodia.semantica import cor_banco, nome_modalidade  # noqa: E402
 from custodia.ui import escolher, baixar, cartoes, leitura, pagina, secao  # noqa: E402
+from custodia.ui import AUREA_INV  # noqa: E402  (ESTET-01: divisão φ : 1)
 
 ctx = pagina("Assessor do ente",
              "Diagnóstico, recomendações, argumentos e riscos de um município ou estado, gerados pelas regras do "
@@ -42,7 +43,7 @@ cartoes([
      "sub": f"chance de conversão {int(pri['chance_conversao'])}/100" if pri else ""},
 ])
 
-c1, c2 = st.columns([2, 3])
+c1, c2 = st.columns(AUREA_INV)
 with c1:
     secao("Radar do ente", "Ente × média dos entes do mesmo porte na UF (0 a 100, regra DIM-01).")
     todos = d["mart_ente_dimensoes"].merge(er[["cnpj_ente", "uf", "porte"]], on="cnpj_ente")
